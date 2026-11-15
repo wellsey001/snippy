@@ -6485,6 +6485,7 @@ const confirmDiscard = () => !dirty || window.confirm('You have unsaved changes.
 function setAspect(a) {
   state.aspect = ASPECTS[a] ? a : '16:9';
   $('#aspect').value = state.aspect;
+  applySideWidths();
   fitStage();
   renderInspector();
 }
@@ -11211,3 +11212,106 @@ $('#srcView').addEventListener('keydown', (e) => {
   else if (k === ',') { handled(); sourceEdit('insert'); }
   else if (k === '.') { handled(); sourceEdit('overwrite'); }
 });
+
+
+// ---------- resizable side panels
+// Drag the grips between the panels (or use the arrow keys on them) to make the media panel or
+// the settings panel wider; double-click a grip to put it back. Portrait and square videos leave
+// room either side of the preview, so they start with wider panels unless you've set your own.
+const SIDE = { left: { min: 200, def: 260, wide: 340 }, right: { min: 260, def: 320, wide: 420 } };
+let sideWidths = (() => { try { return JSON.parse(localStorage.getItem('snippy.sides') || '{}'); } catch { return {}; } })();
+const CENTRE_MIN = 380;
+
+function sideWidth(which) {
+  if (sideWidths[which]) return sideWidths[which];
+  return state.aspect === '9:16' || state.aspect === '1:1' ? SIDE[which].wide : SIDE[which].def;
+}
+
+function applySideWidths() {
+  const ws = $('.workspace');
+  const total = ws.clientWidth || window.innerWidth;
+  let L = sideWidth('left');
+  let R = sideWidth('right');
+  // Never squeeze the preview below a sensible width.
+  const spare = total - 20 - CENTRE_MIN;
+  if (L + R > spare) {
+    const k = Math.max(0, spare) / (L + R);
+    L = Math.max(SIDE.left.min, Math.round(L * k));
+    R = Math.max(SIDE.right.min, Math.round(R * k));
+  }
+  document.documentElement.style.setProperty('--left-w', `${L}px`);
+  document.documentElement.style.setProperty('--right-w', `${R}px`);
+  placeGrips();
+}
+
+function placeGrips() {
+  const ws = $('.workspace');
+  const kids = [...ws.children].filter((el) => !el.classList.contains('side-grip'));
+  const [left, centre] = kids;
+  if (!left || !centre) return;
+  const box = ws.getBoundingClientRect();
+  const lg = $('#gripLeft');
+  const rg = $('#gripRight');
+  const lb = left.getBoundingClientRect();
+  const cb = centre.getBoundingClientRect();
+  lg.style.left = `${(lb.right + cb.left) / 2 - box.left}px`;
+  const right = kids[kids.length - 1];
+  const rb = right.getBoundingClientRect();
+  rg.style.left = `${(cb.right + rb.left) / 2 - box.left}px`;
+}
+
+function setSide(which, w, save = true) {
+  const ws = $('.workspace');
+  const other = which === 'left' ? sideWidth('right') : sideWidth('left');
+  const max = Math.max(SIDE[which].min, ws.clientWidth - 20 - CENTRE_MIN - other);
+  sideWidths[which] = Math.round(clamp(w, SIDE[which].min, Math.min(max, 900)));
+  if (save) { try { localStorage.setItem('snippy.sides', JSON.stringify(sideWidths)); } catch { /* not kept */ } }
+  applySideWidths();
+  fitStage();
+}
+
+function resetSide(which) {
+  delete sideWidths[which];
+  try { localStorage.setItem('snippy.sides', JSON.stringify(sideWidths)); } catch { /* not kept */ }
+  applySideWidths();
+  fitStage();
+  toast(`${which === 'left' ? 'Media' : 'Settings'} panel back to its usual width`);
+}
+
+for (const which of ['left', 'right']) {
+  const grip = h('div', {
+    id: which === 'left' ? 'gripLeft' : 'gripRight', class: 'side-grip', role: 'separator', tabindex: '0',
+    'aria-orientation': 'vertical', 'aria-label': which === 'left' ? 'Media panel width' : 'Settings panel width',
+    title: 'Drag to resize (double-click to reset)',
+  });
+  grip.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const start = { x: e.clientX, w: sideWidth(which) };
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add('dragging');
+    document.body.classList.add('resizing-cols');
+    const move = (ev) => setSide(which, start.w + (which === 'left' ? 1 : -1) * (ev.clientX - start.x), false);
+    const up = () => {
+      grip.removeEventListener('pointermove', move);
+      grip.removeEventListener('pointerup', up);
+      grip.classList.remove('dragging');
+      document.body.classList.remove('resizing-cols');
+      setSide(which, sideWidth(which));
+    };
+    grip.addEventListener('pointermove', move);
+    grip.addEventListener('pointerup', up);
+  });
+  grip.addEventListener('dblclick', () => resetSide(which));
+  grip.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    e.stopPropagation();
+    const step = e.shiftKey ? 60 : 20;
+    const grow = (e.key === 'ArrowRight') === (which === 'left');
+    setSide(which, sideWidth(which) + (grow ? step : -step));
+  });
+  $('.workspace').append(grip);
+}
+window.addEventListener('resize', () => applySideWidths());
+applySideWidths();

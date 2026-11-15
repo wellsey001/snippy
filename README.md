@@ -55,6 +55,7 @@ The installer is under 1 MB and downloads the rest of Snippy while it installs. 
 - Select several things, group them so they move together (Ctrl+G), or combine clips into one
 - Copy and paste, including between projects, plus undo and redo
 - Canvas shapes: 16:9, 9:16 and 1:1
+- Resizable side panels: drag the grips beside the preview to widen the media or settings panel (double-click to reset). Portrait and square projects start with wider panels
 - Smooth 4K editing: light preview copies are made in the background, and exports always use your originals
 
 </details>

@@ -5005,7 +5005,7 @@ function renderHomeVersion() {
   $('#homeRestart').hidden = s.state !== 'ready';
   $('#homeCheck').hidden = !['idle', 'current', 'error'].includes(s.state);
 }
-$('#homeRestart').addEventListener('click', () => window.api.installUpdate());
+$('#homeRestart').addEventListener('click', () => installUpdateNow());
 $('#homeCheck').addEventListener('click', async () => {
   updateStatus = { state: 'checking' };
   renderHomeVersion();
@@ -6663,8 +6663,13 @@ async function openProject(file, opts = {}) {
 const AUTOSAVE_MS = 60 * 1000;
 function autosave() {
   if (stateBorrowed) return;
-  if (!dirty || !(state.clips.length || state.texts.length || state.media.length)) return;
-  window.api.writeRecovery(JSON.stringify({ projectPath, project: serialize() })).catch(() => {});
+  if (!dirty || !(state.clips.length || state.texts.length || state.media.length)) return Promise.resolve();
+  return window.api.writeRecovery(JSON.stringify({ projectPath, project: serialize() })).catch(() => {});
+}
+// Restart to update: the latest edits are kept first, so they can be offered back afterwards.
+async function installUpdateNow() {
+  await autosave();
+  return window.api.installUpdate();
 }
 setInterval(autosave, AUTOSAVE_MS);
 
@@ -6883,8 +6888,8 @@ $('#splitBtn').addEventListener('click', splitAtPlayhead);
 $('#deleteBtn').addEventListener('click', deleteSelected);
 $('#addTextBtn').addEventListener('click', addText);
 $('#updateGo').addEventListener('click', async () => {
-  // Unsaved work is offered a save first: the close prompt appears as the app restarts.
-  window.api.installUpdate();
+  // Unsaved work is kept as a recovery copy and offered back when the new version opens.
+  installUpdateNow();
 });
 $('#updateLater').addEventListener('click', () => { $('#updateBar').hidden = true; });
 $('#proxyToggle').checked = proxiesOn;

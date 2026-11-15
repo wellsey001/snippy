@@ -1,6 +1,6 @@
 {
   "name": "snippy",
-  "version": "0.47.0",
+  "version": "0.48.0",
   "description": "A free, playful desktop video editor",
   "main": "main.js",
   "scripts": {
@@ -26,7 +26,8 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "installerIcon": "build/icon.ico",
-      "uninstallerIcon": "build/icon.ico"
+      "uninstallerIcon": "build/icon.ico",
+      "include": "build/installer.nsh"
     },
     "fileAssociations": [
       {

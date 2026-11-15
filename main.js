@@ -129,6 +129,8 @@ function createWindow() {
   });
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   win.on('close', (e) => {
+    // Closing to install an update: unsaved work is kept as a recovery copy and offered back.
+    if (installingUpdate) return;
     if (!isDirty) { clearRecovery(); return; }
     const choice = dialog.showMessageBoxSync(win, {
       type: 'warning',
@@ -182,7 +184,52 @@ ipcMain.handle('update:check', async () => {
   try { await autoUpdater.checkForUpdates(); } catch { /* reported through the error event */ }
   return updateState;
 });
-ipcMain.handle('update:install', () => { if (autoUpdater) autoUpdater.quitAndInstall(); });
+// Installing: no installer wizard. The installer runs silently with the choices you made the first
+// time (for all users or just you, and where), while Snippy's own "Updating" window shows, then
+// the new version opens by itself.
+let installingUpdate = false;
+ipcMain.handle('update:install', async () => {
+  if (!autoUpdater || installingUpdate) return { ok: false };
+  if (isDirty && win && !win.isDestroyed()) {
+    const choice = dialog.showMessageBoxSync(win, {
+      type: 'question',
+      buttons: ['Update now', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1,
+      message: 'You have unsaved changes',
+      detail: 'Snippy keeps a copy of them and offers it back when it opens again after the update. To save the project first, cancel and press Ctrl+S.',
+    });
+    if (choice === 1) return { ok: false, cancelled: true };
+  }
+  installingUpdate = true;
+  await showUpdateSplash();
+  autoUpdater.quitAndInstall(true, true);
+  return { ok: true };
+});
+
+// Snippy's "Updating" window: a small PowerShell window playing an animated picture, started on
+// its own (from a temporary copy) so it stays up while Snippy closes and the installer replaces it.
+async function showUpdateSplash() {
+  if (process.platform !== 'win32') return;
+  try {
+    const dir = path.join(os.tmpdir(), 'snippy-update');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const f of ['update-splash.ps1', 'update-splash.gif']) fs.writeFileSync(path.join(dir, f), fs.readFileSync(path.join(__dirname, 'src', 'update', f)));
+    const ready = path.join(dir, `ready-${process.pid}.txt`);
+    fs.rmSync(ready, { force: true });
+    const installer = autoUpdater.installerPath ? path.basename(autoUpdater.installerPath) : '';
+    const ps = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const child = spawn(ps, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-STA', '-WindowStyle', 'Hidden', '-File', path.join(dir, 'update-splash.ps1'),
+      '-Gif', path.join(dir, 'update-splash.gif'), '-AppExe', process.execPath, '-Installer', installer, '-Ready', ready],
+    { detached: true, stdio: 'ignore', windowsHide: true });
+    child.on('error', () => { /* no splash: the update still installs */ });
+    child.unref();
+    // Wait (up to 4 seconds) for it to appear, so there's no gap between Snippy and the splash.
+    const t0 = Date.now();
+    while (Date.now() - t0 < 4000 && !fs.existsSync(ready)) await new Promise((r) => setTimeout(r, 100));
+    for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.hide();
+  } catch { /* no splash: the update still installs */ }
+}
 app.on('window-all-closed', () => app.quit());
 
 // ---------- helpers

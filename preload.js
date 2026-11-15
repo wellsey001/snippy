@@ -14,6 +14,9 @@ contextBridge.exposeInMainWorld('api', {
   getTranscript: (filePath, key) => ipcRenderer.invoke('transcript:get', filePath, key),
   putTranscript: (filePath, key, data) => ipcRenderer.invoke('transcript:put', filePath, key, data),
   saveImage: (dataUrl, name) => ipcRenderer.invoke('image:save', dataUrl, name),
+  getBrand: () => ipcRenderer.invoke('brand:get'),
+  setBrand: (kit) => ipcRenderer.invoke('brand:set', kit),
+  pickOne: (kind) => ipcRenderer.invoke('dialog:pickOne', kind),
   cancelExport: () => ipcRenderer.invoke('export:cancel'),
   onExportProgress: (cb) => {
     const handler = (_e, value) => cb(value);

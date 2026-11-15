@@ -84,4 +84,75 @@ async function installTools({ dir, fetchFn, onProgress, isCancelled, baseUrl = B
   return { ...toolPaths(dir, platform), version: manifest.ffmpegVersion || null };
 }
 
-module.exports = { installTools, installed, toolPaths, getManifest, BASE_URL, COMPONENTS_TAG, TOOLS };
+// ---------- packs: a folder of files in one download (the AI tools)
+// Format: "SNPK" + 4-byte header length + JSON { files: [{ p (path), n (bytes) }] } + the files'
+// bytes one after another, all squeezed with Brotli. Small to write and read with no extra packages.
+
+function packFiles(files) {
+  const header = Buffer.from(JSON.stringify({ files: files.map((f) => ({ p: f.p, n: f.data.length })) }));
+  const len = Buffer.alloc(4);
+  len.writeUInt32LE(header.length);
+  return Buffer.concat([Buffer.from('SNPK'), len, header, ...files.map((f) => f.data)]);
+}
+
+function unpackFiles(buf) {
+  if (buf.subarray(0, 4).toString() !== 'SNPK') throw new Error('not a Snippy pack');
+  const hl = buf.readUInt32LE(4);
+  const { files } = JSON.parse(buf.subarray(8, 8 + hl).toString());
+  let at = 8 + hl;
+  return files.map((f) => {
+    if (f.p.includes('..') || path.isAbsolute(f.p)) throw new Error(`bad path in pack: ${f.p}`);
+    const data = buf.subarray(at, at + f.n);
+    at += f.n;
+    return { p: f.p, data };
+  });
+}
+
+const packDir = (dir, name) => path.join(dir, name);
+function packInstalled(dir, name) {
+  try { return fs.existsSync(path.join(packDir(dir, name), '.complete')); } catch { return false; }
+}
+
+// Downloads and unpacks a pack (for example 'ai') into dir/<name>, checking its fingerprint.
+async function installPack({ dir, name, fetchFn, onProgress, isCancelled, baseUrl = BASE_URL, platform = process.platform, arch = process.arch }) {
+  const manifest = await getManifest(fetchFn, baseUrl);
+  const f = manifest.files.find((x) => x.tool === name && x.platform === platform && x.arch === arch);
+  if (!f) throw new Error(`There's no download of the ${name} tools for this computer (${platform} ${arch}) yet.`);
+  const res = await fetchFn(baseUrl + f.gz);
+  if (!res.ok || !res.body) throw new Error(`The download failed (${res.status}). Check your internet connection and try again.`);
+  const chunks = [];
+  let done = 0;
+  const count = new Transform({
+    transform(chunk, _enc, cb) {
+      if (isCancelled && isCancelled()) { cb(new Error('cancelled')); return; }
+      done += chunk.length;
+      if (onProgress) onProgress({ done, total: f.gzSize, file: name });
+      cb(null, chunk);
+    },
+  });
+  const collect = new Transform({ transform(chunk, _enc, cb) { chunks.push(chunk); cb(); } });
+  const body = typeof res.body.getReader === 'function' ? Readable.fromWeb(res.body) : res.body;
+  try {
+    await pipeline(body, count, zlib.createBrotliDecompress(), collect);
+  } catch (err) {
+    if (String(err.message).includes('cancelled')) throw err;
+    throw new Error(`The download didn't finish properly (${err.message}). Try again.`);
+  }
+  const buf = Buffer.concat(chunks);
+  const sum = crypto.createHash('sha256').update(buf).digest('hex');
+  if (sum !== f.sha256 || buf.length !== f.size) throw new Error('The download was damaged on the way (its fingerprint didn\u2019t match). Try again.');
+  const target = packDir(dir, name);
+  const temp = `${target}.part`;
+  fs.rmSync(temp, { recursive: true, force: true });
+  for (const { p, data } of unpackFiles(buf)) {
+    const out = path.join(temp, p);
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, data);
+  }
+  fs.writeFileSync(path.join(temp, '.complete'), JSON.stringify({ sha256: f.sha256, version: f.version || null }));
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.renameSync(temp, target);
+  return target;
+}
+
+module.exports = { installTools, installed, toolPaths, getManifest, installPack, packInstalled, packFiles, unpackFiles, BASE_URL, COMPONENTS_TAG, TOOLS };

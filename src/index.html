@@ -290,6 +290,8 @@
     <button id="acBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.5 20 17M8.6 16.5 20 7"/><path d="M17 3l.8 1.7L19.5 5.5l-1.7.8L17 8l-.8-1.7-1.7-.8 1.7-.8z"/></svg><span><b>AutoCut</b><small>Pick clips and get a few finished edits to choose from</small></span></button>
     <button id="vtplBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9M13 13h5M13 17h3"/></svg><span><b>Make from a template</b><small>Drop in clips and music, get a finished edit cut to the beat</small></span></button>
     <button id="autoBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6L21 11.5 15.5 14 13 20l-2.5-6L5 11.5 10.5 9z"/></svg><span><b>Auto edit</b><small>Find the best moments in long videos and make a highlight reel</small></span></button>
+    <button id="brandBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.3A5.7 5.7 0 0 0 22 9.8C22 5.5 17.5 2 12 2z"/></svg><span><b>Brand kit</b><small>Your colours, font, caption look, logo, intro and outro, for every video</small></span></button>
+    <button id="zoomInsBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21M10.5 7.5v6M7.5 10.5h6"/></svg><span><b>Auto zoom-ins</b><small>Zoom in on the stressed words in talking clips, and back out after</small></span></button>
     <button id="shortsBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="11" height="12" rx="2"/><rect x="15.5" y="3" width="6" height="11" rx="1.5"/><path d="M13.5 12h2M15.5 17.5l3 3 3-3"/></svg><span><b>Find Shorts</b><small>Turn a long video into short clips with captions, ready for TikTok and Reels</small></span></button>
     <button id="thumbBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M6 10h7M6 14h4"/><circle cx="17" cy="12.5" r="2.5"/></svg><span><b>Thumbnail maker</b><small>Pick a great frame, add big text and save a thumbnail or cover</small></span></button>
     <button id="captionsBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M7 15h4M13 15h4M7 11h2M11 11h6"/></svg><span><b>Auto captions</b><small>Write captions from the speech in your clips</small></span></button>
@@ -402,6 +404,11 @@
     </div>
   </div>
 
+  <div id="aiCard" class="ai-card" role="status" aria-live="polite" hidden>
+    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 20h14"/></svg>
+    <div class="ai-card-body"><span id="aiCardMsg">Getting Snippy's AI tools (one time only)…</span><div class="progress"><div id="aiCardBar" class="progress-bar"></div></div></div>
+  </div>
+
   <div id="setupModal" class="modal setup-modal" hidden>
     <div class="modal-card setup-card" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
       <h2 id="setupTitle">Getting Snippy ready</h2>
@@ -411,6 +418,30 @@
       <div class="modal-actions">
         <button id="setupQuit" class="btn" hidden>Close Snippy</button>
         <button id="setupRetry" class="btn primary" hidden>Try again</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="ziModal" class="modal" hidden>
+    <div class="modal-card zi-card" role="dialog" aria-modal="true" aria-labelledby="ziTitle">
+      <h2 id="ziTitle">Auto zoom-ins</h2>
+      <div id="ziBody" class="modal-form"></div>
+      <div class="modal-actions">
+        <button id="ziCancel" class="btn">Cancel</button>
+        <button id="ziRemove" class="btn danger" hidden>Remove auto zoom-ins</button>
+        <button id="ziGo" class="btn primary">Add zoom-ins</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="brandModal" class="modal" hidden>
+    <div class="modal-card brand-card" role="dialog" aria-modal="true" aria-labelledby="brandTitle">
+      <h2 id="brandTitle">Brand kit</h2>
+      <p class="hint">Set these once and use them in every video. Changes are saved as you make them.</p>
+      <div id="brandBody" class="brand-body"></div>
+      <div class="modal-actions">
+        <button id="brandClose" class="btn">Done</button>
+        <button id="brandApply" class="btn primary">Apply to this project</button>
       </div>
     </div>
   </div>
@@ -548,6 +579,7 @@
           <p class="muted">What are you making today?</p>
         </div>
         <span class="grow"></span>
+        <button id="homeBrand" class="btn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.3A5.7 5.7 0 0 0 22 9.8C22 5.5 17.5 2 12 2z"/></svg>Brand kit</button>
         <button id="homeOpen" class="btn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open project…</button>
         <button id="homeBack" class="btn" hidden>Back to my edit</button>
       </div>

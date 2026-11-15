@@ -33,7 +33,7 @@ Edit like CapCut, with no watermark, no account and no subscription. Everything 
 1. Download **`Snippy-Setup-<version>.exe`** from the [latest release](https://github.com/wellsey001/snippy/releases/latest) and run it.
 2. If Windows shows "Windows protected your PC", click **More info** and then **Run anyway**. (Snippy isn't code-signed yet, so Windows doesn't recognise it.)
 
-The installer is under 1 MB. It downloads Snippy while it installs (about 190 MB). The first time Snippy opens, it downloads its video tools (FFmpeg, about 50 MB) once. AI features download their models the first time you use them. After that, Snippy updates itself whenever a new version is released.
+The installer is under 1 MB and downloads the rest of Snippy while it installs. Extras download only when they're needed, once each: the video tools (FFmpeg, about 50 MB) the first time Snippy opens, and the AI tools (about 30 MB) plus each AI model the first time you use an AI feature. After that, Snippy updates itself whenever a new version is released.
 
 **You need:** Windows 10 or 11 (64-bit). A graphics card from NVIDIA, Intel or AMD makes exports faster, but isn't required.
 
@@ -63,6 +63,7 @@ The installer is under 1 MB. It downloads Snippy while it installs (about 190 MB
 - Translate captions into Spanish, French, German, Italian, Dutch, Swedish, Russian, Ukrainian, Arabic, Hindi or Chinese
 - Edit by text: delete words in the transcript to cut them from the video, and find "um"s and repeated words
 - Text templates: title, lower third, subscribe, countdown, chapter, meme, breaking news, quote and typewriter
+- Nine fonts for any text or caption: Impact, Heavy, Bahnschrift, Trebuchet, Georgia, Comic, Script, Mono and Snippy's own
 - Emoji stickers, 16 animated "fun" stickers, animated emoji, and your own GIFs and see-through PNGs
 
 </details>
@@ -83,6 +84,7 @@ The installer is under 1 MB. It downloads Snippy while it installs (about 190 MB
 <summary><b>Look and sound</b></summary>
 
 - Colour looks, curves, .cube LUTs, and brightness, contrast and saturation
+- Touch up: light, medium or strong skin smoothing with a little extra light, for faces close to the camera
 - Effects: grain, VHS, old film, glitch and shake. Stabilise for shaky footage
 - Beat detection: cut clips to the beat, with beats rated by how hard they hit
 - Auto-duck music under speech, reduce background noise, studio voice, and even out loudness
@@ -101,6 +103,8 @@ The installer is under 1 MB. It downloads Snippy while it installs (about 190 MB
 - **Auto edit:** a highlight reel from long footage
 - **Remove pauses** in talking clips
 - **Auto reframe:** follows the person when changing a landscape video to portrait or square
+- **Auto zoom-ins:** zooms in on the stressed words in talking clips (said louder, strong words, punchlines) and back out when the sentence ends, as a quick punch or a gentle push
+- **Brand kit:** your colours, font, caption look, logo, intro and outro, saved once. Apply them to any project in one click, and add your logo as a watermark on every export
 
 </details>
 

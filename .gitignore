@@ -11,3 +11,4 @@ components/
 Thumbs.db
 desktop.ini
 *.log
+build-exclude.json

@@ -4,6 +4,22 @@
 // so an exported video shows exactly what the editor showed.
 
 const CAPTION_FONT = '"Segoe UI", "Segoe UI Variable Display", system-ui, sans-serif';
+// Fonts a text can use (all come with Windows). [id, name, CSS font list, weight].
+const TEXT_FONTS = [
+  ['default', 'Snippy', CAPTION_FONT, 700],
+  ['impact', 'Impact', 'Impact, "Arial Black", sans-serif', 400],
+  ['black', 'Heavy', '"Arial Black", "Segoe UI Black", sans-serif', 900],
+  ['bahn', 'Bahnschrift', 'Bahnschrift, "Segoe UI", sans-serif', 700],
+  ['trebuchet', 'Trebuchet', '"Trebuchet MS", "Segoe UI", sans-serif', 700],
+  ['georgia', 'Georgia', 'Georgia, "Times New Roman", serif', 700],
+  ['comic', 'Comic', '"Comic Sans MS", "Segoe Print", cursive', 700],
+  ['script', 'Script', '"Segoe Script", "Brush Script MT", cursive', 700],
+  ['mono', 'Mono', 'Consolas, "Courier New", monospace', 700],
+];
+function textFont(x, size) {
+  const f = TEXT_FONTS.find((e) => e[0] === (x && x.font)) || TEXT_FONTS[0];
+  return `${f[3]} ${size}px ${f[2]}`;
+}
 const ANIMS = { pop: 0.22, fade: 0.25, slide: 0.28 }; // intro length in seconds
 // Caption looks: a whole style in one click. Each sets every word-style field, so switching
 // between them never leaves part of the old look behind.
@@ -68,7 +84,7 @@ function activeWordAt(x, u) {
 
 function layoutCaption(ctx, x, W, H) {
   const size = (x.size / 100) * H;
-  ctx.font = `700 ${size}px ${CAPTION_FONT}`;
+  ctx.font = textFont(x, size);
   // A little extra room between words so a highlighted (slightly larger) word never touches its neighbours.
   const space = ctx.measureText(' ').width + size * 0.1;
   const maxW = W * 0.9;
@@ -133,7 +149,7 @@ function drawCaption(ctx, W, H, x, u) {
   ctx.rotate((k.rotate * Math.PI) / 180);
   ctx.scale(scale * k.scale, scale * k.scale);
   ctx.translate(-L.cx, -L.cy);
-  ctx.font = `700 ${size}px ${CAPTION_FONT}`;
+  ctx.font = textFont(x, size);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
   ctx.lineJoin = 'round';

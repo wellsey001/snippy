@@ -37,23 +37,26 @@ jobs:
       # The installer leaves out FFmpeg; Snippy downloads it from the components-v1 release on
       # its first run. Upload it only when it's new or has changed, so downloads in progress
       # never see a half-replaced set.
-      - name: Pack the video tools
+      - name: Pack the video tools and the AI tools
         run: node scripts/make-components.js components
 
-      - name: Publish the video tools (components-v1)
+      - name: Leave the downloadable parts out of the installer
+        run: node scripts/prepare-build.js
+
+      - name: Publish the downloadable parts (components-v1)
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if ! gh release view components-v1 > /dev/null 2>&1; then
             gh release create components-v1 components/* --title "Video tools for Snippy" \
-              --notes "FFmpeg and FFprobe for Windows. Snippy downloads these once, the first time it opens; you don't need to download them yourself." \
+              --notes "FFmpeg, FFprobe and the AI tools for Windows. Snippy downloads these by itself (the video tools when it first opens, the AI tools the first time you use an AI feature); you don't need to download them." \
               --latest=false
           else
             gh release download components-v1 -p components.json -O remote.json --clobber || echo '{"files":[]}' > remote.json
             same=$(node -e "const a=require('./remote.json').files.map(f=>f.sha256).sort().join();const b=require('./components/components.json').files.map(f=>f.sha256).sort().join();console.log(a===b?'yes':'no')")
             if [ "$same" = "no" ]; then
-              gh release upload components-v1 components/*.gz --clobber
+              gh release upload components-v1 components/*.gz components/*.br --clobber
               gh release upload components-v1 components/components.json --clobber
             else
               echo "The video tools haven't changed."

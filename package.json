@@ -1,6 +1,6 @@
 {
   "name": "snippy",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "description": "A free, playful desktop video editor",
   "main": "main.js",
   "scripts": {
@@ -48,6 +48,9 @@
       "!node_modules/onnxruntime-node/bin/napi-v*/linux/**",
       "!node_modules/onnxruntime-node/bin/napi-v*/win32/arm64/**",
       "!docs/**",
+      "!components/**",
+      "!build-exclude.json",
+      "!node_modules/onnxruntime-web/**",
       "!scripts/**",
       "!.github/**",
       "!update.js",
@@ -68,6 +71,10 @@
         "repo": "snippy",
         "releaseType": "release"
       }
+    ],
+    "electronLanguages": [
+      "en-GB",
+      "en-US"
     ]
   },
   "dependencies": {

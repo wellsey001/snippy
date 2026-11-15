@@ -2319,7 +2319,7 @@ function addText() {
   commit();
   const x = {
     id: newId('t'), text: 'Your text', start: state.playhead, dur: 3,
-    size: 7, position: 'bottom', color: '#FFFFFF',
+    size: 7, position: 'bottom', color: '#FFFFFF', ...brandTextDefaults(),
   };
   state.texts.push(x);
   overlayKey = null;
@@ -2432,7 +2432,7 @@ function insertTemplate(tpl) {
   if (ta) { ta.focus(); ta.select(); }
 }
 
-const TEXT_STYLE = ['size', 'position', 'color', 'anim', 'highlight', 'hlColor', 'box', 'caps', 'align', 'boxColor', 'offsetY', 'wordFx', 'keyColor', 'kwColor', 'emoji'];
+const TEXT_STYLE = ['font', 'size', 'position', 'color', 'anim', 'highlight', 'hlColor', 'box', 'caps', 'align', 'boxColor', 'offsetY', 'wordFx', 'keyColor', 'kwColor', 'emoji'];
 const copyStyle = (src) => Object.fromEntries(TEXT_STYLE.map((k) => [k, src[k]]));
 
 const WORD_FX = [['none', 'None'], ['hl', 'Highlight'], ['pop', 'Pop in'], ['bounce', 'Bounce'], ['karaoke', 'Karaoke'], ['box', 'Box'], ['glow', 'Glow'], ['big', 'Big word'], ['one', 'One word']];
@@ -3080,7 +3080,7 @@ const INSPECTOR_TABS = {
     ['audio', 'Audio', ['Clip volume', 'Voice', 'Background noise']],
     ['motion', 'Transform', ['Keyframes', 'Scale', 'Position left / right', 'Position up / down', 'Rotation', 'Turn and flip', 'Crop left', 'Crop right', 'Crop top', 'Crop bottom']],
     ['mask', 'Mask', ['Mask', 'Mask outside', 'Mask size', 'Mask width', 'Mask left / right', 'Mask up / down', 'Mask soft edge']],
-    ['colour', 'Colour', ['Effect', 'Look', 'Brightness', 'Contrast', 'Saturation', 'Curves', 'Colour LUT']],
+    ['colour', 'Colour', ['Touch up', 'Effect', 'Look', 'Brightness', 'Contrast', 'Saturation', 'Curves', 'Colour LUT']],
   ],
   overlay: [
     ['layout', 'Layout', ['Overlay', 'Position', 'Size', 'Opacity', 'Blend mode', 'Split screen']],
@@ -3091,7 +3091,7 @@ const INSPECTOR_TABS = {
   ],
   text: [
     ['text', 'Text', ['Text', 'Size', 'Position', 'Align', 'Nudge up / down', 'Timing']],
-    ['style', 'Style', ['Caption look', 'Colour', 'Word animation', 'Key words', 'Emoji', 'Highlight colour', 'Background', 'Letters']],
+    ['style', 'Style', ['Caption look', 'Font', 'Colour', 'Word animation', 'Key words', 'Emoji', 'Highlight colour', 'Background', 'Letters']],
     ['anim', 'Animation', ['Animation']],
     ['motion', 'Motion', ['Keyframes', 'Motion tracking', 'Move left / right', 'Move up / down', 'Zoom', 'Turn', 'Opacity']],
   ],
@@ -3320,8 +3320,18 @@ function renderTextInspector(ins, x) {
         onClick: () => applyLook(x, p),
       }, lookThumb(p), h('span', {}, p.name)))),
       x.auto && state.texts.filter((t) => t.auto).length > 1 ? h('p', { class: 'hint' }, 'Picking a look changes all your auto captions.') : null),
+    section('Font', h('div', { class: 'font-grid', role: 'group', 'aria-label': 'Font' },
+      ...TEXT_FONTS.map(([id, name, fam, weight]) => h('button', {
+        class: 'font-tile', 'aria-pressed': String((x.font || 'default') === id), title: name,
+        style: `font-family:${fam.replace(/"/g, "'")};font-weight:${weight}`,
+        onClick: () => discrete(() => { if (id === 'default') delete x.font; else x.font = id; }),
+      }, name)))),
     section('Colour', h('div', { class: 'swatches' },
-      ...COLORS.map((c) => h('button', {
+      ...brandSwatches().map((c) => h('button', {
+        class: 'swatch brand-swatch', style: `background:${c}`, 'aria-label': `Brand colour ${c}`, title: 'From your brand kit',
+        'aria-pressed': String(x.color === c), onClick: () => discrete(() => { x.color = c; }),
+      })),
+      ...COLORS.filter((c) => !brandSwatches().includes(c)).map((c) => h('button', {
         class: 'swatch', style: `background:${c}`, 'aria-label': `Colour ${c}`,
         'aria-pressed': String(x.color === c), onClick: () => discrete(() => { x.color = c; }),
       })))),
@@ -3339,13 +3349,13 @@ function renderTextInspector(ins, x) {
     textSeg('Key words', [[false, 'Off'], [true, 'In colour']], Boolean(x.keyColor), (v) => { x.keyColor = v; }),
     textSeg('Emoji', [[false, 'Off'], [true, 'Add emoji']], Boolean(x.emoji), (v) => { x.emoji = v; }),
     x.highlight || (x.wordFx && x.wordFx !== 'none' && x.wordFx !== 'one') ? section('Highlight colour', h('div', { class: 'swatches' },
-      ...['#FFD84D', '#FACC15', '#4ADE80', '#5CE1E6', '#E879F9', '#F87171', '#FFFFFF'].map((c) => h('button', {
+      ...[...new Set([...brandSwatches(), '#FFD84D', '#FACC15', '#4ADE80', '#5CE1E6', '#E879F9', '#F87171', '#FFFFFF'])].map((c) => h('button', {
         class: 'swatch', style: `background:${c}`, 'aria-label': `Highlight colour ${c}`,
         'aria-pressed': String((x.hlColor || '#FFD84D') === c), onClick: () => discrete(() => { x.hlColor = c; }),
       })))) : null,
     textSeg('Background', [[false, 'Outline'], [true, 'Box']], Boolean(x.box), (v) => { x.box = v; }),
     x.box ? section('Box colour', h('div', { class: 'swatches' },
-      ...BOX_COLOURS.map(([c, label]) => h('button', {
+      ...[...brandSwatches().map((c) => [c, 'Brand colour']), ...BOX_COLOURS].map(([c, label]) => h('button', {
         class: 'swatch', style: `background:${c}`, 'aria-label': `Box colour ${label}`, title: label,
         'aria-pressed': String((x.boxColor || BOX_COLOURS[0][0]) === c), onClick: () => discrete(() => { x.boxColor = c; }),
       })))) : null,
@@ -3405,6 +3415,11 @@ function renderClipInspector(ins, c) {
     keyframeSection(c, 'clip'),
     zoomSection(c),
     isImage(mediaById(c.mediaId)) && !mediaById(c.mediaId).width ? null : maskSection(c),
+    segSection('Touch up', [['none', 'Off'], ['light', 'Light'], ['medium', 'Medium'], ['strong', 'Strong']], c.touch || 'none', (v) => { if (v === 'none') delete c.touch; else c.touch = v; }),
+    c.touch ? h('p', { class: 'hint' }, 'Smooths skin and evens out small marks, with a little extra light. Best on faces close to the camera.') : null,
+    c.touch && state.clips.length > 1 ? h('div', { class: 'btn-row look-actions' }, h('button', {
+      class: 'btn', onClick: () => { commit(); for (const x of state.clips) x.touch = c.touch; markDirty(); renderInspector(); toast(`Touch up on all ${state.clips.length} clips`); },
+    }, 'Use on all clips')) : null,
     section('Effect', h('div', { class: 'choices', role: 'group', 'aria-label': 'Effect' },
       ...FX_LIST.map(([v, label]) => h('button', {
         class: 'btn', 'aria-pressed': String((c.fx || 'none') === v),
@@ -4228,6 +4243,10 @@ function lutSection(c) {
 
 // ----- the LUT view: a WebGL canvas over a layer that shows the graded picture
 
+// Touch up levels: blur size (share of the picture's height), how much of it, and brightness.
+const TOUCH_LEVELS = { light: { k: 0.0045, op: 0.55, bright: 1.025 }, medium: { k: 0.007, op: 0.75, bright: 1.04 }, strong: { k: 0.01, op: 0.9, bright: 1.055 } };
+const touchOf = (c) => (c && c.touch && TOUCH_LEVELS[c.touch]) || null;
+
 class LutView {
   constructor(layer) {
     this.canvas = h('canvas', { class: 'lut-view' });
@@ -4243,7 +4262,24 @@ in vec2 p; out vec2 uv; void main() { uv = vec2(p.x * .5 + .5, .5 - p.y * .5); g
     const fs = `#version 300 es
 precision highp float; precision highp sampler3D;
 in vec2 uv; out vec4 o; uniform sampler2D img; uniform sampler3D lut; uniform float n; uniform float mixv;
-void main() { vec4 c = texture(img, uv); vec3 q = (clamp(c.rgb, 0., 1.) * (n - 1.) + .5) / n; o = vec4(mix(c.rgb, texture(lut, q).rgb, mixv), 1.); }`;
+uniform float useLut; uniform float smoothv; uniform vec2 sig; uniform float bright;
+// Touch up: a blurred copy laid over with "lighten", so small dark marks fill in from the skin
+// around them while edges stay, then a touch brighter. The export does the same with FFmpeg.
+vec3 blurAt(vec2 p) {
+  vec3 acc = texture(img, p).rgb * .2;
+  for (int i = 0; i < 8; i++) {
+    float a = float(i) * .785398;
+    vec2 d = vec2(cos(a), sin(a));
+    acc += texture(img, p + d * sig * .9).rgb * .065 + texture(img, p + d * sig * 1.9).rgb * .035;
+  }
+  return acc;
+}
+void main() {
+  vec3 c = texture(img, uv).rgb;
+  if (smoothv > 0.) { vec3 b = blurAt(uv); c = mix(c, max(c, b), smoothv); c *= bright; }
+  if (useLut > .5) { vec3 q = (clamp(c, 0., 1.) * (n - 1.) + .5) / n; c = mix(c, texture(lut, q).rgb, mixv); }
+  o = vec4(c, 1.);
+}`;
     const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); return s; };
     const pr = gl.createProgram();
     gl.attachShader(pr, sh(gl.VERTEX_SHADER, vs));
@@ -4266,18 +4302,19 @@ void main() { vec4 c = texture(img, uv); vec3 q = (clamp(c.rgb, 0., 1.) * (n - 1
     if (!this.canvas.hidden) { this.canvas.hidden = true; if (src) src.style.opacity = ''; }
   }
 
-  draw(src, lutPath, mix) {
+  draw(src, lutPath, mix, touch = null) {
     const gl = this.gl;
-    const lut = lutStore.get(lutPath);
+    const lut = lutPath ? lutStore.get(lutPath) : null;
     const w = src.videoWidth || src.naturalWidth;
     const hh = src.videoHeight || src.naturalHeight;
-    if (!gl || !lut || !lut.data || !w || !hh || (src.readyState != null && src.readyState < 2)) { this.hide(src); return false; }
+    const useLut = Boolean(lut && lut.data);
+    if (!gl || (!useLut && !touch) || !w || !hh || (src.readyState != null && src.readyState < 2)) { this.hide(src); return false; }
     const scale = Math.min(1, 1920 / Math.max(w, hh));
     const cw = Math.round(w * scale);
     const ch = Math.round(hh * scale);
     if (this.canvas.width !== cw || this.canvas.height !== ch) { this.canvas.width = cw; this.canvas.height = ch; }
     gl.viewport(0, 0, cw, ch);
-    if (this.lutKey !== lutPath) {
+    if (useLut && this.lutKey !== lutPath) {
       if (this.lutTex) gl.deleteTexture(this.lutTex);
       this.lutTex = gl.createTexture();
       gl.activeTexture(gl.TEXTURE1);
@@ -4292,8 +4329,13 @@ void main() { vec4 c = texture(img, uv); vec3 q = (clamp(c.rgb, 0., 1.) * (n - 1
     try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); } catch { this.hide(src); return false; }
     gl.uniform1i(gl.getUniformLocation(this.pr, 'img'), 0);
     gl.uniform1i(gl.getUniformLocation(this.pr, 'lut'), 1);
-    gl.uniform1f(gl.getUniformLocation(this.pr, 'n'), lut.size);
+    gl.uniform1f(gl.getUniformLocation(this.pr, 'n'), useLut ? lut.size : 2);
     gl.uniform1f(gl.getUniformLocation(this.pr, 'mixv'), mix);
+    gl.uniform1f(gl.getUniformLocation(this.pr, 'useLut'), useLut ? 1 : 0);
+    gl.uniform1f(gl.getUniformLocation(this.pr, 'smoothv'), touch ? touch.op : 0);
+    // The blur's size is a share of the picture's height, as in the export.
+    gl.uniform2f(gl.getUniformLocation(this.pr, 'sig'), touch ? (touch.k * hh) / w : 0, touch ? touch.k : 0);
+    gl.uniform1f(gl.getUniformLocation(this.pr, 'bright'), touch ? touch.bright : 1);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     // The canvas takes the picture's place, with the same filters and zoom on top.
     this.canvas.style.filter = src.style.filter;
@@ -4317,11 +4359,11 @@ function drawLutLayers() {
   const loc = state.clips.length ? locate(state.playhead) : null;
   const a = loc && loc.clip;
   const srcA = still.hidden ? video : still;
-  if (a && a.lut) { if (!lutStore.get(a.lut.path)) loadLut(a.lut.path).catch(() => {}); lutA.draw(srcA, a.lut.path, a.lut.mix ?? 1); }
+  if (a && (a.lut || touchOf(a))) { if (a.lut && !lutStore.get(a.lut.path)) loadLut(a.lut.path).catch(() => {}); lutA.draw(srcA, a.lut ? a.lut.path : null, a.lut ? a.lut.mix ?? 1 : 0, touchOf(a)); }
   else lutA.hide(srcA);
   const x = crossAt(state.playhead);
   const srcB = stillB.hidden ? videoB : stillB;
-  if (x && x.clip.lut && !$('#layerB').hidden) { if (!lutStore.get(x.clip.lut.path)) loadLut(x.clip.lut.path).catch(() => {}); lutB.draw(srcB, x.clip.lut.path, x.clip.lut.mix ?? 1); }
+  if (x && (x.clip.lut || touchOf(x.clip)) && !$('#layerB').hidden) { if (x.clip.lut && !lutStore.get(x.clip.lut.path)) loadLut(x.clip.lut.path).catch(() => {}); lutB.draw(srcB, x.clip.lut ? x.clip.lut.path : null, x.clip.lut ? x.clip.lut.mix ?? 1 : 0, touchOf(x.clip)); }
   else lutB.hide(srcB);
 }
 
@@ -5024,6 +5066,7 @@ function updateSmartMenu() {
   $('#translateBtn').disabled = !state.texts.length;
   $('#reframeBtn').disabled = !has;
   $('#shortsBtn').disabled = !state.media.some((m) => m.kind === 'video' && m.hasAudio);
+  $('#zoomInsBtn').disabled = !has;
   $('#thumbBtn').disabled = !has;
 }
 $('#smartBtn').addEventListener('click', () => { if ($('#smartMenu').hidden) openSmart(); else closeSmart(); });
@@ -6128,6 +6171,7 @@ function buildExportProject(settings, width, height) {
       const m = mediaById(c.mediaId);
       return {
         path: m.path, isImage: isImage(m), in: c.in, out: c.out, hasAudio: m.hasAudio, speed: spd(c), color: colorSteps(c), curve: c.curve || null, lut: c.lut || null, fx: c.fx || null, denoise: Boolean(c.denoise),
+        touch: touchOf(c) ? { op: touchOf(c).op, bright: touchOf(c).bright, sigma: Number((touchOf(c).k * Math.min(height, (width * (m.height || 9)) / (m.width || 16))).toFixed(2)) } : null,
         mode: !isImage(m) && c.mode ? c.mode : null, ramp: !isImage(m) && rampFor(c) ? c.ramp : null, stab: !isImage(m) && c.stab ? c.stab : null, voice: c.voice && c.voice !== 'none' ? c.voice : null,
         motion: { zoom: c.zoom ?? 1, posX: c.posX || 0, posY: c.posY || 0, rotate: c.rotate || 0, flipH: Boolean(c.flipH), flipV: Boolean(c.flipV), keys: c.keys },
         crop: c.crop && (c.crop.l || c.crop.r || c.crop.t || c.crop.b) ? c.crop : null,
@@ -6233,7 +6277,7 @@ async function startExport() {
         plans = await reframeFor(job.aspect, (i, n) => exportModal('running', `${label}following the person in clip ${i + 1} of ${n}.`));
       }
       const [width, height] = exportSize(gif ? settings.gif : settings.res, job.aspect);
-      const project = buildFor(job.aspect, plans, settings, width, height);
+      const project = withBrandLogo(job.aspect, () => buildFor(job.aspect, plans, settings, width, height));
       exportModal('running', `${label}preparing captions.`);
       const missingGifs = await loadAllGifs();
       if (missingGifs.length) { exportModal('error', `These sticker files can't be found: ${missingGifs.join(', ')}`); return; }
@@ -6546,6 +6590,7 @@ async function runCaptions() {
         : { size: 6, position: 'bottom', color: '#FFFFFF', anim: 'pop', highlight: true, hlColor: '#FFD84D', box: false, caps: true };
       const look = CAPTION_PRESETS.find((p) => p.id === $('#capLook').value);
       if (look) Object.assign(style, look.set);
+      else if (!earlier) Object.assign(style, brandCaptionStyle());
       if ($('#capKeys').checked) style.keyColor = true;
       if ($('#capEmoji').checked) style.emoji = true;
       if (replace) state.texts = state.texts.filter((x) => !x.auto);
@@ -6749,7 +6794,7 @@ document.addEventListener('keydown', (e) => {
     if (k === 'Escape') $('#exportSettings').hidden = true;
     return;
   }
-  const dialogOpen = !$('#vtplModal').hidden || !$('#trModal').hidden || !$('#checkModal').hidden || !$('#pausesModal').hidden || !$('#voModal').hidden || !$('#jobModal').hidden || !$('#home').hidden || !$('#relinkModal').hidden || !$('#tour').hidden || !$('#exportModal').hidden || !$('#captionsModal').hidden || !$('#cutoutModal').hidden || !$('#shModal').hidden || !$('#thumbModal').hidden || !$('#setupModal').hidden;
+  const dialogOpen = !$('#vtplModal').hidden || !$('#trModal').hidden || !$('#checkModal').hidden || !$('#pausesModal').hidden || !$('#voModal').hidden || !$('#jobModal').hidden || !$('#home').hidden || !$('#relinkModal').hidden || !$('#tour').hidden || !$('#exportModal').hidden || !$('#captionsModal').hidden || !$('#cutoutModal').hidden || !$('#shModal').hidden || !$('#thumbModal').hidden || !$('#setupModal').hidden || !$('#brandModal').hidden || !$('#ziModal').hidden;
   if (dialogOpen) {
     if (k === 'Escape' && !$('#captionsModal').hidden && !captionsRunning) $('#captionsModal').hidden = true;
     return;
@@ -10038,6 +10083,7 @@ async function toolsReady() {
   const retry = $('#setupRetry');
   modal.hidden = false;
   const off = window.api.onComponentsProgress((p) => {
+    if (p.file === 'ai') return;
     const f = p.total ? p.done / p.total : 0;
     bar.style.width = `${Math.round(f * 100)}%`;
     msg.textContent = `Downloading the video tools: ${(p.done / 1e6).toFixed(0)} of ${(p.total / 1e6).toFixed(0)} MB`;
@@ -10068,3 +10114,383 @@ async function toolsReady() {
   modal.hidden = true;
 }
 $('#setupQuit').addEventListener('click', () => window.close());
+
+
+// The AI tools download the first time an AI feature is used: a small card shows how it's going.
+if (window.api.onComponentsProgress) {
+  window.api.onComponentsProgress((p) => {
+    if (p.file !== 'ai') return;
+    const card = $('#aiCard');
+    if (p.finished) {
+      $('#aiCardBar').style.width = '100%';
+      $('#aiCardMsg').textContent = 'AI tools ready';
+      setTimeout(() => { card.hidden = true; }, 900);
+      return;
+    }
+    if (p.failed) { card.hidden = true; return; } // the feature itself says what went wrong
+    card.hidden = false;
+    const f = p.total ? p.done / p.total : 0;
+    $('#aiCardBar').style.width = `${Math.round(f * 100)}%`;
+    $('#aiCardMsg').textContent = p.total
+      ? `Downloading Snippy's AI tools (one time only): ${(p.done / 1e6).toFixed(0)} of ${(p.total / 1e6).toFixed(0)} MB`
+      : 'Getting Snippy’s AI tools (one time only)…';
+  });
+}
+
+// ---------- brand kit
+// Colours, a font, a caption look, a logo (with a watermark on every export if you like), and an
+// intro and outro, saved once for every project.
+
+const BRAND_DEFAULT = {
+  colours: ['#C084FC', '#F472B6', '#FFD84D', '#FFFFFF', '#111111'],
+  font: 'default',
+  captionLook: '',
+  useForNew: true,
+  logo: null, // { path, url, width, height, corner, size, opacity, onExport }
+  intro: null, // { path, name }
+  outro: null,
+};
+let brand = null;
+const brandSwatches = () => (brand ? brand.colours.filter(Boolean) : []);
+function brandTextDefaults() {
+  if (!brand || !brand.useForNew) return {};
+  return brand.font && brand.font !== 'default' ? { font: brand.font } : {};
+}
+function brandCaptionStyle() {
+  if (!brand || !brand.useForNew) return {};
+  const look = CAPTION_PRESETS.find((p) => p.id === brand.captionLook);
+  return { ...(look ? look.set : {}), ...brandTextDefaults(), ...(brand.colours[2] ? { hlColor: brand.colours[2] } : {}) };
+}
+
+(async () => {
+  try { const k = await window.api.getBrand(); if (k) brand = { ...BRAND_DEFAULT, ...k }; } catch { /* none yet */ }
+})();
+
+let brandSaveTimer = 0;
+function saveBrand() {
+  clearTimeout(brandSaveTimer);
+  brandSaveTimer = setTimeout(() => { window.api.setBrand(brand).catch(() => toast('The brand kit couldn’t be saved')); }, 250);
+}
+
+// Where the logo sits, as an overlay: a corner, its width as a share of the frame.
+function logoPlacement(L, aspect) {
+  const [cw, ch] = ASPECTS[aspect] || [16, 9];
+  const w = L.size || 0.14;
+  const hFrac = (w * (cw / ch)) / Math.max(0.1, (L.width || 1) / (L.height || 1));
+  const m = 0.035;
+  const right = (L.corner || 'br').includes('r');
+  const bottom = (L.corner || 'br').startsWith('b');
+  return {
+    w,
+    x: right ? 1 - w / 2 - m * (ch / cw) : w / 2 + m * (ch / cw),
+    y: bottom ? 1 - hFrac / 2 - m : hFrac / 2 + m,
+  };
+}
+
+// The logo on every export: added for the export only, unless the edit already has it.
+function withBrandLogo(aspect, build) {
+  const L = brand && brand.logo;
+  if (!L || !L.onExport || !L.path || !state.clips.length || state.overlays.some((o) => o.brandLogo)) return build();
+  const m = { id: newId('m'), kind: 'image', path: L.path, url: L.url, name: 'Logo', width: L.width, height: L.height, hasVideo: true, hasAudio: false, duration: 0 };
+  const total = totalDuration();
+  const o = { id: newId('o'), mediaId: m.id, start: 0, in: 0, out: total, opacity: L.opacity ?? 0.9, volume: 0, lane: laneCount(), brandLogo: true, ...logoPlacement(L, aspect) };
+  state.media.push(m);
+  state.overlays.push(o);
+  try { return build(); } finally {
+    state.overlays.splice(state.overlays.indexOf(o), 1);
+    state.media.splice(state.media.indexOf(m), 1);
+  }
+}
+
+async function addBrandMedia(p) {
+  const existing = state.media.find((m) => m.path === p);
+  if (existing) return existing;
+  const info = await window.api.probe(p);
+  const m = { id: newId('m'), ...info };
+  state.media.push(m);
+  loadLevels(m);
+  queueProxy(m);
+  return m;
+}
+
+// Puts the brand on this project: font and caption look on its text, the logo as an overlay you
+// can see and move, and the intro and outro at the start and end.
+async function applyBrand() {
+  if (!brand) return;
+  const done = [];
+  commit();
+  const look = CAPTION_PRESETS.find((p) => p.id === brand.captionLook);
+  let restyled = 0;
+  for (const t of state.texts) {
+    if (brand.font && brand.font !== 'default') t.font = brand.font; else delete t.font;
+    if (t.auto && look) { Object.assign(t, look.set); if (brand.colours[2]) t.hlColor = brand.colours[2]; }
+    restyled++;
+  }
+  if (restyled) done.push(`${restyled} text${restyled === 1 ? '' : 's'} restyled`);
+  try {
+    if (brand.intro && brand.intro.path && !state.clips.some((c) => c.brand === 'intro')) {
+      const m = await addBrandMedia(brand.intro.path);
+      state.clips.unshift({ ...newClip(m), brand: 'intro' });
+      done.push('intro added');
+    }
+    if (brand.outro && brand.outro.path && !state.clips.some((c) => c.brand === 'outro')) {
+      const m = await addBrandMedia(brand.outro.path);
+      state.clips.push({ ...newClip(m), brand: 'outro' });
+      done.push('outro added');
+    }
+    if (brand.logo && brand.logo.path && state.clips.length && !state.overlays.some((o) => o.brandLogo)) {
+      const m = await addBrandMedia(brand.logo.path);
+      const o = { ...newOverlay(m, 0), out: totalDuration(), opacity: brand.logo.opacity ?? 0.9, brandLogo: true, ...logoPlacement(brand.logo, state.aspect) };
+      o.lane = freeLane(0, o.out);
+      state.overlays.push(o);
+      done.push('logo added');
+    }
+  } catch (err) {
+    console.error(err);
+    toast(`Some of your brand files couldn't be found: ${cleanError(err)}`);
+  }
+  markDirty();
+  overlayKey = null;
+  renderAll();
+  refreshPreview();
+  updateOverlay();
+  toast(done.length ? `Brand applied: ${done.join(', ')}` : 'Your brand is already on this project');
+}
+
+function openBrand() {
+  if (!brand) brand = JSON.parse(JSON.stringify(BRAND_DEFAULT));
+  $('#brandModal').hidden = false;
+  renderBrand();
+}
+
+function renderBrand() {
+  const body = $('#brandBody');
+  body.textContent = '';
+  const change = (fn) => () => { fn(); saveBrand(); renderBrand(); };
+  const row = (title, ...kids) => h('div', { class: 'brand-row' }, h('h3', {}, title), ...kids);
+  // Colours
+  const names = ['Main', 'Second', 'Highlight', 'Text', 'Dark'];
+  body.append(row('Colours',
+    h('div', { class: 'brand-colours' }, ...brand.colours.map((c, i) => h('label', { class: 'brand-colour', title: names[i] },
+      h('input', { type: 'color', value: c, 'aria-label': `${names[i]} colour`, onInput: (e) => { brand.colours[i] = e.target.value; saveBrand(); e.target.nextSibling.textContent = e.target.value.toUpperCase(); } }),
+      h('span', {}, c.toUpperCase()), h('small', {}, names[i])))),
+    h('p', { class: 'hint' }, 'They appear first in every colour choice. "Highlight" colours the spoken word in captions.')));
+  // Font
+  body.append(row('Font',
+    h('div', { class: 'font-grid' }, ...TEXT_FONTS.map(([id, name, fam, weight]) => h('button', {
+      class: 'font-tile', 'aria-pressed': String((brand.font || 'default') === id), style: `font-family:${fam.replace(/"/g, "'")};font-weight:${weight}`,
+      onClick: change(() => { brand.font = id; }),
+    }, name)))));
+  // Caption look
+  body.append(row('Caption look',
+    h('div', { class: 'look-grid brand-looks' },
+      h('button', { class: 'look-tile', 'aria-pressed': String(!brand.captionLook), onClick: change(() => { brand.captionLook = ''; }) }, h('span', { class: 'look-none' }, 'Aa'), h('span', {}, 'Snippy’s usual')),
+      ...CAPTION_PRESETS.map((p) => h('button', {
+        class: 'look-tile', 'aria-pressed': String(brand.captionLook === p.id), title: p.name,
+        onClick: change(() => { brand.captionLook = p.id; }),
+      }, lookThumb(p), h('span', {}, p.name)))),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: brand.useForNew ? '' : null, onChange: (e) => { brand.useForNew = e.target.checked; saveBrand(); } }),
+      ' Use my font and caption look for new text and auto captions')));
+  // Logo
+  const L = brand.logo;
+  body.append(row('Logo',
+    h('div', { class: 'brand-file' },
+      L ? h('img', { class: 'brand-logo', src: L.url, alt: 'Your logo' }) : h('div', { class: 'brand-logo empty' }, 'No logo'),
+      h('div', { class: 'brand-file-btns' },
+        h('button', { class: 'btn small', onClick: async () => {
+          const p = await window.api.pickOne('image');
+          if (!p) return;
+          try {
+            const info = await window.api.probe(p);
+            brand.logo = { corner: 'br', size: 0.14, opacity: 0.9, onExport: false, ...(brand.logo || {}), path: p, url: info.url, width: info.width, height: info.height };
+            saveBrand(); renderBrand();
+          } catch { toast('That picture couldn’t be read'); }
+        } }, L ? 'Change…' : 'Choose a picture…'),
+        L ? h('button', { class: 'btn small danger', onClick: change(() => { brand.logo = null; }) }, 'Remove') : null)),
+    L ? h('div', { class: 'brand-logo-opts' },
+      h('div', { class: 'seg', role: 'group', 'aria-label': 'Corner' }, ...[['tl', 'Top left'], ['tr', 'Top right'], ['bl', 'Bottom left'], ['br', 'Bottom right']].map(([v, label]) => h('button', {
+        'aria-pressed': String((L.corner || 'br') === v), onClick: change(() => { L.corner = v; }),
+      }, label))),
+      h('label', { class: 'brand-slider' }, h('span', {}, 'Size'), h('input', { type: 'range', min: '0.05', max: '0.35', step: '0.01', value: String(L.size || 0.14), onInput: (e) => { L.size = Number(e.target.value); saveBrand(); } })),
+      h('label', { class: 'brand-slider' }, h('span', {}, 'Opacity'), h('input', { type: 'range', min: '0.2', max: '1', step: '0.05', value: String(L.opacity ?? 0.9), onInput: (e) => { L.opacity = Number(e.target.value); saveBrand(); } })),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: L.onExport ? '' : null, onChange: (e) => { L.onExport = e.target.checked; saveBrand(); } }),
+        ' Add my logo to every export (as a watermark)')) : null));
+  // Intro and outro
+  const clipRow = (key, label) => {
+    const v = brand[key];
+    return h('div', { class: 'brand-clip' },
+      h('b', {}, label), h('span', { class: 'brand-clip-name' }, v ? v.name : 'None'),
+      h('button', { class: 'btn small', onClick: async () => {
+        const p = await window.api.pickOne('video');
+        if (!p) return;
+        brand[key] = { path: p, name: p.split(/[\\/]/).pop() };
+        saveBrand(); renderBrand();
+      } }, v ? 'Change…' : 'Choose…'),
+      v ? h('button', { class: 'btn small danger', onClick: change(() => { brand[key] = null; }) }, 'Remove') : null);
+  };
+  body.append(row('Intro and outro', clipRow('intro', 'Intro'), clipRow('outro', 'Outro'),
+    h('p', { class: 'hint' }, 'Short videos you put at the start and end: a logo sting, a "thanks for watching" or a subscribe reminder.')));
+  $('#brandApply').disabled = !state.clips.length;
+  $('#brandApply').title = state.clips.length ? '' : 'Open or start a project first';
+}
+
+$('#brandBtn').addEventListener('click', openBrand);
+$('#homeBrand').addEventListener('click', openBrand);
+$('#brandClose').addEventListener('click', () => { $('#brandModal').hidden = true; renderInspector(); });
+$('#brandApply').addEventListener('click', async () => { $('#brandModal').hidden = true; await applyBrand(); });
+
+// ---------- auto zoom-ins
+// Zooms in on the moments that are stressed in talking clips (said louder than the words around
+// them, strong words, the end of a punchline), and back out a moment later. Uses the captions'
+// word timings when there are some, otherwise just the sound.
+
+const ZI_STRONG = /^(never|always|best|worst|biggest|crazy|insane|secret|mistake|actually|literally|love|hate|money|free|million|thousand|truth|wrong|wow|amazing|incredible|honestly|seriously|terrible|perfect|huge|everything|nothing|only|must|stop|now|really|so|very|massive|biggest|first|last|every|all|no|yes)$/i;
+const ZI_SMALL = /^(the|a|an|and|or|but|of|to|in|on|at|for|it|is|was|i|you|we|he|she|they|that|this|um+|uh+|er+m?|like|just)$/i;
+const ZI_GAPS = { few: 9, some: 5.5, lots: 3.2 };
+const ZI_ZOOM = { subtle: 1.1, medium: 1.18, strong: 1.3 };
+let ziOpts = (() => { try { return { style: 'punch', often: 'some', strength: 'medium', ...JSON.parse(localStorage.getItem('snippy.zi') || '{}') }; } catch { return { style: 'punch', often: 'some', strength: 'medium' }; } })();
+
+// Candidate moments on the timeline: { T, score, until (when the thought ends) }.
+function emphasisMoments() {
+  const out = [];
+  const medians = new Map();
+  const loudness = (T) => {
+    const loc = locate(T);
+    if (!loc) return 1;
+    const m = mediaById(loc.clip.mediaId);
+    if (!m || !m.levels) return 1;
+    if (!medians.has(loc.clip.id)) {
+      const a = Math.floor(loc.clip.in / LEVEL_HOP);
+      const b = Math.ceil(loc.clip.out / LEVEL_HOP);
+      const v = m.levels.slice(a, b).filter((x) => x > 0.01).sort((p, q) => p - q);
+      medians.set(loc.clip.id, v.length ? v[Math.floor(v.length / 2)] : 0);
+    }
+    const med = medians.get(loc.clip.id);
+    if (!med) return 1;
+    let peak = 0;
+    for (let s = loc.src; s < loc.src + 0.3; s += LEVEL_HOP) peak = Math.max(peak, levelAt(m, s));
+    return peak / med;
+  };
+  const caps = state.texts.filter((t) => t.auto && t.words && t.words.length).sort((a, b) => a.start - b.start);
+  if (caps.length) {
+    const words = caps.flatMap((t) => t.words.map((w) => ({ text: w.text, T: t.start + w.s, E: t.start + w.e })));
+    // Where each sentence ends, so a zoom holds until the thought is finished.
+    const ends = words.filter((w) => /[.!?]["')\]]?$/.test(w.text)).map((w) => w.E);
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      const bare = w.text.replace(/[^\p{L}\p{N}']/gu, '');
+      if (!bare || ZI_SMALL.test(bare)) continue;
+      const z = loudness(w.T);
+      let score = Math.min(1, Math.max(0, (z - 1) / 1.1)) * 0.55;
+      if (ZI_STRONG.test(bare)) score += 0.3;
+      if (/!/.test(w.text)) score += 0.2;
+      if (bare.length >= 6) score += 0.08;
+      if (/^\d/.test(bare)) score += 0.12;
+      if (bare === bare.toUpperCase() && bare.length > 1 && /\p{L}/u.test(bare)) score += 0.15;
+      const until = ends.find((e) => e > w.E + 0.2) ?? w.E + 2;
+      out.push({ T: w.T, score, until: Math.min(until + 0.25, w.T + 3.2) });
+    }
+  } else {
+    // No captions: the loud moments in the sound.
+    const total = totalDuration();
+    let prev = 0;
+    for (let T = 0.3; T < total - 0.3; T += 0.1) {
+      const z = loudness(T);
+      if (z > 1.35 && prev <= 1.35) out.push({ T, score: Math.min(1, (z - 1) / 1.1), until: T + 2.2 });
+      prev = z;
+    }
+  }
+  return out;
+}
+
+function removeAutoZooms(quiet = false) {
+  let n = 0;
+  for (const c of state.clips) {
+    if (!c.keys) continue;
+    const before = c.keys.length;
+    c.keys = c.keys.filter((k) => !k.zi);
+    n += before - c.keys.length;
+    if (!c.keys.length) delete c.keys;
+  }
+  if (!quiet) {
+    markDirty(); renderAll(); refreshPreview();
+    toast(n ? 'Removed the auto zoom-ins' : 'There were no auto zoom-ins to remove');
+  }
+  return n;
+}
+
+function addAutoZooms(opts) {
+  if (!state.clips.length) { toast('Add a talking clip first'); return; }
+  commit();
+  removeAutoZooms(true);
+  const gap = ZI_GAPS[opts.often] || 5.5;
+  const zoom = ZI_ZOOM[opts.strength] || 1.18;
+  const smooth = opts.style === 'smooth';
+  const starts = clipStarts();
+  const moments = emphasisMoments().sort((a, b) => b.score - a.score);
+  const picked = [];
+  for (const mo of moments) {
+    if (mo.score < 0.3) break;
+    if (picked.some((p) => Math.abs(p.T - mo.T) < gap)) continue;
+    const loc = locate(mo.T);
+    if (!loc) continue;
+    const u = mo.T - loc.start;
+    if (u < 0.6 || u > clipLen(loc.clip) - 1) continue; // not right on a cut
+    picked.push({ ...mo, loc });
+  }
+  picked.sort((a, b) => a.T - b.T);
+  picked.forEach((p, i) => {
+    const c = p.loc.clip;
+    const L = clipLen(c);
+    const u = p.T - starts[p.loc.index];
+    const next = picked[i + 1];
+    const until = Math.min(p.until, next ? next.T - 0.6 : Infinity, starts[p.loc.index] + L - 0.15);
+    const e = Math.max(u + 0.6, until - starts[p.loc.index]);
+    const ramp = smooth ? 0.35 : 0.03;
+    const back = smooth ? 0.45 : 0.03;
+    const a0 = Math.max(0, u - ramp);
+    const e1 = Math.min(L, e + back);
+    const v0 = kfValue(c, 'clip', a0);
+    const vm = kfValue(c, 'clip', u);
+    const ve = kfValue(c, 'clip', e);
+    const v1 = kfValue(c, 'clip', e1);
+    const keys = (c.keys || []).filter((k) => k.t < a0 - 0.01 || k.t > e1 + 0.01);
+    keys.push(
+      { t: a0, ...v0, zi: true },
+      { t: u, ...vm, zoom: vm.zoom * zoom, zi: true },
+      { t: e, ...ve, zoom: ve.zoom * zoom, zi: true },
+      { t: e1, ...v1, zi: true },
+    );
+    c.keys = keys.sort((x, y) => x.t - y.t);
+  });
+  markDirty();
+  renderAll();
+  refreshPreview();
+  toast(picked.length
+    ? `Added ${picked.length} zoom-in${picked.length === 1 ? '' : 's'}${state.texts.some((t) => t.auto && t.words) ? ' on the stressed words' : ' on the loudest moments'}. Ctrl+Z takes them out`
+    : 'No stressed moments stood out. Try "Often", or make auto captions first');
+  return picked.length;
+}
+
+function openZoomIns() {
+  if (!state.clips.length) { toast('Add a talking clip first'); return; }
+  const body = $('#ziBody');
+  body.textContent = '';
+  const seg = (label, key, options) => h('div', { class: 'field' }, label, h('div', { class: 'seg', role: 'group', 'aria-label': label },
+    ...options.map(([v, name]) => h('button', { 'aria-pressed': String(ziOpts[key] === v), onClick: () => { ziOpts[key] = v; try { localStorage.setItem('snippy.zi', JSON.stringify(ziOpts)); } catch { /* not kept */ } openZoomIns(); } }, name))));
+  const hasCaps = state.texts.some((t) => t.auto && t.words);
+  body.append(
+    seg('Style', 'style', [['punch', 'Punch (a quick jump)'], ['smooth', 'Smooth (a gentle push)']]),
+    seg('How often', 'often', [['few', 'Now and then'], ['some', 'Regularly'], ['lots', 'Often']]),
+    seg('How much', 'strength', [['subtle', 'Subtle'], ['medium', 'Medium'], ['strong', 'Strong']]),
+    h('p', { class: 'hint' }, hasCaps
+      ? 'Uses your captions to find the stressed words: said louder than the rest, strong words, numbers and punchlines. Each zoom holds until the sentence finishes.'
+      : 'Tip: make auto captions first (Smart tools) so the zooms land on the stressed words. Without them, Snippy zooms on the loudest moments.'),
+  );
+  $('#ziRemove').hidden = !state.clips.some((c) => (c.keys || []).some((k) => k.zi));
+  $('#ziModal').hidden = false;
+}
+$('#zoomInsBtn').addEventListener('click', openZoomIns);
+$('#ziCancel').addEventListener('click', () => { $('#ziModal').hidden = true; });
+$('#ziRemove').addEventListener('click', () => { $('#ziModal').hidden = true; commit(); removeAutoZooms(); });
+$('#ziGo').addEventListener('click', () => { $('#ziModal').hidden = true; addAutoZooms(ziOpts); });

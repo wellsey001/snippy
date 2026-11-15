@@ -261,6 +261,15 @@ function curvesFilter(ys, enable = '') {
 // A colour look-up table (.cube). The file is copied into the job's folder so it can be named
 // without a path; "mix" blends the graded picture with the original.
 let lutCount = 0;
+// Touch up (skin smoothing): a blurred copy laid over with "lighten" (in RGB, as the preview does),
+// so small dark marks fill in from the skin around them while edges stay; then a touch brighter.
+function touchFilter(t, i) {
+  if (!t || !(t.sigma > 0)) return '';
+  const b = Number(t.bright || 1).toFixed(3);
+  return `format=gbrp,split[tua${i}][tub${i}];[tub${i}]gblur=sigma=${t.sigma}[tuc${i}];` +
+    `[tua${i}][tuc${i}]blend=all_mode=lighten:all_opacity=${Number(t.op).toFixed(3)},colorchannelmixer=rr=${b}:gg=${b}:bb=${b},format=yuv420p,`;
+}
+
 function lutFilter(lut, tmpDir, tag) {
   if (!lut || !lut.path || !fs.existsSync(lut.path)) return '';
   const name = `lut${lutCount++}.cube`;
@@ -673,7 +682,7 @@ ipcMain.handle('export:start', async (event, project, outPath) => {
     }
     graph.push(
       `[${i}:v:0]trim=start=${a}:end=${b},${timing},` +
-      `scale=${W}:${H}:force_original_aspect_ratio=decrease:force_divisible_by=2,${cropFilter(c.crop)}${lutFilter(c.lut, tmp, `cl${i}`)}${colorFilters(c.color)}${curvesFilter(c.curve)}` +
+      `scale=${W}:${H}:force_original_aspect_ratio=decrease:force_divisible_by=2,${touchFilter(c.touch, i)}${cropFilter(c.crop)}${lutFilter(c.lut, tmp, `cl${i}`)}${colorFilters(c.color)}${curvesFilter(c.curve)}` +
       `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${fps},settb=AVTB,format=yuv420p${maskFilter(c.mask, i)}${transformFilter(c.motion, W, H, `tf${i}`)}${fxFilters(c.fx, W, H)}${vf}[v${i}]`
     );
     const vol = (c.volume == null ? 1 : c.volume).toFixed(3);
@@ -1121,8 +1130,44 @@ const ASR_MODEL = 'onnx-community/whisper-base_timestamped';
 let asrPipeline = null;
 let captionsJob = null;
 
+// ---------- the AI tools
+// Bundled when running from the project folder (npm install). The installed app leaves them out to
+// stay small and downloads them, once, the first time an AI feature is used (components.js).
+const AI_ENTRY = {
+  '@huggingface/transformers': 'node_modules/@huggingface/transformers/dist/transformers.node.mjs',
+  'kokoro-js': 'node_modules/kokoro-js/dist/kokoro.js',
+};
+const aiDir = () => path.join(componentsDir(), 'ai');
+function aiBundled() {
+  try { require.resolve('@huggingface/transformers'); require.resolve('kokoro-js'); return true; } catch { return false; }
+}
+const aiReady = () => aiBundled() || components.packInstalled(componentsDir(), 'ai');
+
+let aiDownload = null;
+function ensureAi() {
+  if (aiReady()) return Promise.resolve();
+  if (!aiDownload) {
+    const tell = (p) => { if (win && !win.isDestroyed()) win.webContents.send('components:progress', p); };
+    const fetchFn = (url) => (net && net.fetch ? net.fetch : fetch)(url, { headers: { 'User-Agent': `Snippy/${app.getVersion()}` } });
+    tell({ file: 'ai', done: 0, total: 0 });
+    aiDownload = components.installPack({ dir: componentsDir(), name: 'ai', fetchFn, onProgress: tell })
+      .then(() => tell({ file: 'ai', finished: true }))
+      .catch((err) => { tell({ file: 'ai', failed: String(err.message || err) }); throw new Error(`Snippy's AI tools couldn't be downloaded: ${err.message || err}`); })
+      .finally(() => { aiDownload = null; });
+  }
+  return aiDownload;
+}
+
+async function aiImport(name) {
+  if (aiBundled()) return import(name);
+  await ensureAi();
+  return import(pathToFileURL(path.join(aiDir(), AI_ENTRY[name])).href);
+}
+ipcMain.handle('ai:status', () => ({ ready: aiReady(), bundled: aiBundled() }));
+ipcMain.handle('ai:install', () => ensureAi().then(() => ({ ready: true })));
+
 async function loadTransformers() {
-  const T = await import('@huggingface/transformers');
+  const T = await aiImport('@huggingface/transformers');
   // Models are cached in the user's app data folder (the install folder is read-only).
   T.env.cacheDir = path.join(app.getPath('userData'), 'models');
   T.env.allowLocalModels = false;
@@ -1589,8 +1634,9 @@ async function getTts(send) {
   await loadTransformers(); // sets where models are kept
   let KokoroTTS;
   try {
-    ({ KokoroTTS } = await import('kokoro-js'));
-  } catch {
+    ({ KokoroTTS } = await aiImport('kokoro-js'));
+  } catch (err) {
+    if (/AI tools/.test(err.message)) throw err;
     throw new Error('The voice package is missing. Run "npm install" in the Snippy folder, then restart Snippy.');
   }
   ttsModel = await KokoroTTS.from_pretrained(TTS_MODEL, { dtype: 'q8', device: 'cpu', progress_callback: downloadProgress(send) });
@@ -1823,10 +1869,10 @@ ipcMain.handle('checkup:run', async () => {
   // Features that download something the first time
   add('AI features', 'Auto captions model', modelThere(ASR_MODEL) ? 'ok' : 'info', modelThere(ASR_MODEL) ? 'Downloaded.' : 'Downloads (about 80 MB) the first time you use Auto captions.');
   add('AI features', 'Person finder (cut-outs, reframe)', modelThere(SEG_MODEL) ? 'ok' : 'info', modelThere(SEG_MODEL) ? 'Downloaded.' : 'Downloads (about 25 MB) the first time you remove a background or reframe.');
-  let kokoro = true;
-  try { require.resolve('kokoro-js'); } catch { kokoro = false; }
-  add('AI features', 'Voiceover voices', !kokoro ? 'bad' : modelThere(TTS_MODEL) ? 'ok' : 'info',
-    !kokoro ? 'The voice package is missing. Run "npm install" in the Snippy folder.' : modelThere(TTS_MODEL) ? 'Downloaded.' : 'Downloads (about 90 MB) the first time you make a voiceover.');
+  add('AI features', 'AI tools', aiReady() ? 'ok' : 'info', aiBundled() ? 'Included (running from the project folder).' : aiReady() ? 'Downloaded.' : 'Download once (about 30 MB) the first time you use an AI feature.');
+  const kokoro = aiReady();
+  add('AI features', 'Voiceover voices', !kokoro ? 'info' : modelThere(TTS_MODEL) ? 'ok' : 'info',
+    !kokoro ? 'Come with the AI tools.' : modelThere(TTS_MODEL) ? 'Downloaded.' : 'Downloads (about 90 MB) the first time you make a voiceover.');
   const pack = soundPack.packList(packDir());
   const ready = pack.filter((s) => s.ready).length;
   add('Extras', 'Real sound effects', ready === pack.length ? 'ok' : 'info', ready === pack.length ? `All ${pack.length} downloaded.` : `${ready} of ${pack.length} downloaded. Get them from the Sounds panel.`);
@@ -1848,6 +1894,23 @@ ipcMain.handle('recent:add', (_e, entry) => {
 });
 ipcMain.handle('recent:remove', (_e, p) => writeFileSafe(recentPath(), JSON.stringify(readRecent().filter((r) => r.path !== p))));
 ipcMain.handle('project:openPath', (_e, p) => ({ path: p, text: fs.readFileSync(p, 'utf8') }));
+
+// The brand kit: colours, font, caption look, logo, intro and outro, kept for every project.
+const brandFile = () => path.join(app.getPath('userData'), 'brand.json');
+ipcMain.handle('brand:get', () => {
+  try { return JSON.parse(fs.readFileSync(brandFile(), 'utf8')); } catch { return null; }
+});
+ipcMain.handle('brand:set', (_e, kit) => {
+  fs.writeFileSync(brandFile(), JSON.stringify(kit, null, 2));
+  return true;
+});
+ipcMain.handle('dialog:pickOne', async (_e, kind) => {
+  const filters = kind === 'image'
+    ? [{ name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }]
+    : [{ name: 'Video', extensions: ['mp4', 'mov', 'm4v', 'webm', 'mkv', 'avi'] }];
+  const r = await dialog.showOpenDialog(win, { title: kind === 'image' ? 'Choose your logo' : 'Choose a video', properties: ['openFile'], filters });
+  return r.canceled || !r.filePaths.length ? null : r.filePaths[0];
+});
 
 // A long video's transcript is kept, so finding Shorts in it again doesn't mean listening again.
 ipcMain.handle('transcript:get', (_e, src, key) => {

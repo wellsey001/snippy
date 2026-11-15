@@ -4789,10 +4789,39 @@ function showUpdateBar() {
   $('#updateGo').hidden = s.state !== 'ready';
 }
 
+// The version, and the state of updates, at the bottom of the home screen.
+function renderHomeVersion() {
+  const s = updateStatus;
+  $('#homeVer').textContent = appVersion ? `Snippy ${appVersion}` : 'Snippy';
+  const msg = s.state === 'checking' ? 'Checking for updates…'
+    : s.state === 'current' ? 'Up to date'
+      : s.state === 'downloading' ? `Downloading version ${s.version}… ${Math.round((s.progress || 0) * 100)}%`
+        : s.state === 'ready' ? `Version ${s.version} has downloaded`
+          : s.state === 'error' ? 'Couldn’t check for updates'
+            : s.state === 'off' ? 'Running from the project folder (update with node update.js)'
+              : '';
+  $('#homeUpd').textContent = msg;
+  $('#homeVersion').classList.toggle('ready', s.state === 'ready');
+  const barWrap = $('#homeUpdBar').parentElement;
+  barWrap.hidden = s.state !== 'downloading';
+  $('#homeUpdBar').style.width = `${Math.round((s.progress || 0) * 100)}%`;
+  $('#homeRestart').hidden = s.state !== 'ready';
+  $('#homeCheck').hidden = !['idle', 'current', 'error'].includes(s.state);
+}
+$('#homeRestart').addEventListener('click', () => window.api.installUpdate());
+$('#homeCheck').addEventListener('click', async () => {
+  updateStatus = { state: 'checking' };
+  renderHomeVersion();
+  try { updateStatus = await window.api.checkForUpdates(); } catch { updateStatus = { state: 'error' }; }
+  // "checking" is followed by an event; if none comes (already up to date), say so.
+  if (updateStatus.state === 'checking' || updateStatus.state === 'idle') updateStatus = { state: 'current' };
+  renderHomeVersion();
+});
+
 if (window.api.appVersion) {
-  window.api.appVersion().then((v) => { appVersion = v; if (!state.selected) renderInspector(); }).catch(() => {});
-  window.api.updateState().then((s) => { updateStatus = s; showUpdateBar(); }).catch(() => {});
-  window.api.onUpdateStatus((s) => { updateStatus = s; showUpdateBar(); if (!state.selected) renderInspector(); });
+  window.api.appVersion().then((v) => { appVersion = v; renderHomeVersion(); if (!state.selected) renderInspector(); }).catch(() => {});
+  window.api.updateState().then((s) => { updateStatus = s; showUpdateBar(); renderHomeVersion(); }).catch(() => {});
+  window.api.onUpdateStatus((s) => { updateStatus = s; showUpdateBar(); renderHomeVersion(); if (!state.selected) renderInspector(); });
 }
 
 function aboutSection() {

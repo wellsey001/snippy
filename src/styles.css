@@ -1173,3 +1173,15 @@ body:has(#acBar:not([hidden])) .toast { top: 62px; }
 .xrow-name { flex: 1; font-size: 13px; }
 .xpop-row .seg { flex: 1; }
 .xpop-row .seg button { flex: 1; padding: 5px 10px; font: 600 12px/1.1 var(--font); }
+
+/* ---------- version and updates on the home screen */
+.home-version {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 28px; padding: 10px 14px;
+  border-radius: 12px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); font-size: 12.5px; color: var(--muted);
+}
+.home-ver { color: var(--text); font-weight: 600; }
+.home-upd:not(:empty)::before { content: '·'; margin-right: 12px; opacity: .6; }
+.home-upd-bar { width: 140px; height: 5px; border-radius: 99px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.home-upd-bar > span { display: block; height: 100%; width: 0; background: var(--grad); transition: width .3s; }
+#homeUpd { flex: 1; }
+.home-version.ready { border-color: rgba(192, 132, 252, .55); background: rgba(192, 132, 252, .1); color: var(--text); }

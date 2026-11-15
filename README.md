@@ -119,7 +119,7 @@ The installer is under 1 MB. It downloads Snippy while it installs (about 190 MB
 <details>
 <summary><b>Projects</b></summary>
 
-- A home screen with recent projects, and AutoCut ready to drop clips on
+- A home screen with recent projects, AutoCut ready to drop clips on, and the version number with a **Restart to update** button once a new version has downloaded
 - Save and open `.snippy` projects. Auto-save keeps a copy every minute and offers it back after a crash
 - Missing files can be found again by searching a folder
 - Right-click menus everywhere, shortcuts you can change, a welcome tour, and a check-up that tests everything is working

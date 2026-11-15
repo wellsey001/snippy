@@ -10295,7 +10295,7 @@ function renderBrand() {
   const L = brand.logo;
   body.append(row('Logo',
     h('div', { class: 'brand-file' },
-      L ? h('img', { class: 'brand-logo', src: L.url, alt: 'Your logo' }) : h('div', { class: 'brand-logo empty' }, 'No logo'),
+      L ? h('img', { class: 'kit-logo', src: L.url, alt: 'Your logo' }) : h('div', { class: 'kit-logo empty' }, 'No logo'),
       h('div', { class: 'brand-file-btns' },
         h('button', { class: 'btn small', onClick: async () => {
           const p = await window.api.pickOne('image');

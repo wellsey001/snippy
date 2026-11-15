@@ -47,6 +47,7 @@
       "!node_modules/onnxruntime-node/bin/napi-v*/darwin/**",
       "!node_modules/onnxruntime-node/bin/napi-v*/linux/**",
       "!node_modules/onnxruntime-node/bin/napi-v*/win32/arm64/**",
+      "!docs/**",
       "!scripts/**",
       "!.github/**",
       "!update.js",

@@ -46,7 +46,7 @@ The installer is under 1 MB. It downloads Snippy while it installs (about 190 MB
 - Trim by dragging clip edges, reorder by dragging, split at the playhead, and ripple delete (everything after moves up)
 - Speed from ¼× to 4× with the pitch kept, speed curves (Montage, Hero, Bullet and more), reverse, boomerang and freeze frame
 - Smooth slow motion: new in-between frames are made in the export instead of repeating frames
-- 18 transitions (crossfade, whip pan, zoom, glitch, slices and more), with a preview when you hover over each one
+- 18 transitions (crossfade, whip pan, zoom, glitch, slices and more). Click the + between two clips to pick one, with hover previews, a length slider and a quick play of the cut. Use one on every cut, or Mix it up for a different one at each cut
 - Snapping to the playhead, cuts, beats and markers. Markers (M) can also go on every 4th beat
 - Select several things, group them so they move together (Ctrl+G), or combine clips into one
 - Copy and paste, including between projects, plus undo and redo

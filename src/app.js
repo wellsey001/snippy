@@ -1451,11 +1451,22 @@ function renderTimeline() {
     addKfMarks(el, c, z);
     vt.append(el);
   });
+  // A button on every cut: click it to pick a transition (CapCut-style). Cuts with one show it.
   state.clips.forEach((c, i) => {
-    if (!(c.transition > 0)) return;
+    if (i === 0) {
+      if (!(c.transition > 0)) return;
+      const mk = h('div', { class: 'transition-mark', 'data-id': c.id, title: 'Fade in from black' });
+      mk.style.left = `${starts[0] * z}px`;
+      vt.append(mk);
+      return;
+    }
+    const has = c.transition > 0;
     const ov = overlapOf(i);
-    const title = !i ? 'Fade in from black' : ov > 0 ? transitionName(c.transitionType) : 'Dip to black';
-    const mk = h('div', { class: `transition-mark${ov > 0 ? ' cross' : ''}`, 'data-id': c.id, title });
+    const mk = h('button', {
+      class: `xjoin${has ? ' on' : ''}`, 'data-id': c.id, 'data-cut': String(i), type: 'button',
+      title: has ? `${c.transitionType === 'dip' || !c.transitionType ? 'Dip to black' : transitionName(c.transitionType)} (click to change)` : 'Add a transition',
+      'aria-label': has ? `Transition: ${transitionName(c.transitionType)}. Change it` : `Add a transition between clip ${i} and clip ${i + 1}`,
+    }, has ? xjoinIcon() : '+');
     mk.style.left = `${(starts[i] + ov / 2) * z}px`;
     vt.append(mk);
   });
@@ -1951,6 +1962,8 @@ content.addEventListener('pointerdown', (e) => {
     renderInspector();
     return;
   }
+  const joinEl = e.target.closest('.xjoin');
+  if (joinEl) { e.preventDefault(); e.stopPropagation(); openTransitionPop(Number(joinEl.dataset.cut), joinEl); return; }
   const markEl = e.target.closest('.transition-mark');
   if (markEl) { if (state.playing) pause(); select('clip', markEl.dataset.id); return; }
   // Ctrl+click adds or removes an item from the selection.
@@ -3040,6 +3053,7 @@ function renderInspector() {
 // Sections are matched by title; anything not listed stays with the section before it.
 
 const TAB_ICONS = {
+  video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M3 15h18M8 5v4M16 5v4M8 15v4M16 15v4"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/>',
   speed: '<path d="M12 14l4-4"/><path d="M3.5 18a9 9 0 1 1 17 0"/>',
   audio: '<path d="M4 10v4h4l5 4V6L8 10H4z"/><path d="M16.5 9a4 4 0 0 1 0 6"/><path d="M19 6.5a8 8 0 0 1 0 11"/>',
@@ -3061,7 +3075,7 @@ const TAB_ICONS = {
 
 const INSPECTOR_TABS = {
   clip: [
-    ['edit', 'Edit', ['Clip', 'Combined clip', 'Playback', 'Stabilise', 'Transition from previous clip', 'Fade in from black', 'Fade out at the end']],
+    ['edit', 'Basics', ['Clip', 'Combined clip', 'Playback', 'Stabilise', 'Transition from previous clip', 'Fade in from black', 'Fade out at the end']],
     ['speed', 'Speed', ['Speed', 'Speed curve']],
     ['audio', 'Audio', ['Clip volume', 'Voice', 'Background noise']],
     ['motion', 'Transform', ['Keyframes', 'Scale', 'Position left / right', 'Position up / down', 'Rotation', 'Turn and flip', 'Crop left', 'Crop right', 'Crop top', 'Crop bottom']],
@@ -3097,6 +3111,14 @@ const INSPECTOR_TABS = {
   ],
 };
 
+// Tabs that share a place in the tab bar, with small buttons underneath to pick between them,
+// so the bar stays short: [group id, label, member tab ids].
+const TAB_GROUPS = {
+  clip: [['g-edit', 'Edit', ['edit', 'speed']], ['g-audio', 'Audio', ['audio']], ['g-video', 'Video', ['motion', 'mask']], ['g-colour', 'Colour', ['colour']]],
+  overlay: [['g-layout', 'Layout', ['layout', 'shape']], ['g-motion', 'Motion', ['motion']], ['g-cutout', 'Cut out', ['cutout']], ['g-colour', 'Colour', ['colour']]],
+};
+const GROUP_ICON = { 'g-edit': 'edit', 'g-audio': 'audio', 'g-video': 'video', 'g-colour': 'colour', 'g-layout': 'layout', 'g-motion': 'motion', 'g-cutout': 'cutout' };
+
 const tabChoice = (() => { try { return JSON.parse(localStorage.getItem('snippy.inspTabs') || '{}'); } catch { return {}; } })();
 const tabIcon = (id) => {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -3123,18 +3145,36 @@ function tabify(ins, kind) {
   if (live.length < 2) return;
   let active = tabChoice[kind];
   if (!live.some(([id]) => id === active)) active = live[0][0];
+  const labelOf = new Map(live.map(([id, label]) => [id, label]));
+  // The bar's buttons: groups (several tabs behind one button) or single tabs.
+  const defs = TAB_GROUPS[kind] || live.map(([id, label]) => [id, label, [id]]);
+  const entries = defs.map(([gid, label, ids]) => ({ gid, label, ids: ids.filter((x) => labelOf.has(x)) })).filter((g) => g.ids.length);
+  const grouped = new Set(entries.flatMap((g) => g.ids));
+  for (const [id, label] of live) if (!grouped.has(id)) entries.push({ gid: id, label, ids: [id] }); // anything not in a group
+  const groupOf = (id) => entries.find((g) => g.ids.includes(id));
+  for (const g of entries) g.tid = g.ids.length === 1 ? g.ids[0] : g.gid; // a lone tab keeps its own name
   const bar = h('div', { class: 'insp-tabs', role: 'tablist', 'aria-label': 'Settings' });
   const panels = [];
-  for (const [id, label] of live) {
-    const selected = id === active;
+  for (const g of entries) {
+    const selected = g.ids.includes(active);
+    const first = selected ? active : (g.ids.includes(tabChoice[`${kind}:${g.gid}`]) ? tabChoice[`${kind}:${g.gid}`] : g.ids[0]);
     const tab = h('button', {
-      class: 'insp-tab', role: 'tab', id: `itab-${id}`, 'aria-selected': String(selected),
-      'aria-controls': `ipanel-${id}`, tabindex: selected ? '0' : '-1', title: label,
-      onClick: () => pickTab(kind, id),
-    }, tabIcon(id), h('span', {}, label));
+      class: 'insp-tab', role: 'tab', id: `itab-${g.tid}`, 'data-tabs': g.ids.join(' '), 'aria-selected': String(selected),
+      'aria-controls': `ipanel-${first}`, tabindex: selected ? '0' : '-1', title: g.label,
+      onClick: () => pickTab(kind, g.ids.includes(tabChoice[`${kind}:${g.gid}`]) ? tabChoice[`${kind}:${g.gid}`] : g.ids[0]),
+    }, tabIcon(GROUP_ICON[g.gid] || g.gid), h('span', {}, g.label));
     bar.append(tab);
-    const panel = h('div', { class: 'insp-panel', role: 'tabpanel', id: `ipanel-${id}`, 'aria-labelledby': `itab-${id}` }, ...groups.get(id));
-    panel.hidden = !selected;
+  }
+  for (const [id] of live) {
+    const g = groupOf(id);
+    const panel = h('div', { class: 'insp-panel', role: 'tabpanel', id: `ipanel-${id}`, 'aria-labelledby': `itab-${g.tid}`, 'data-tab': id });
+    // Tabs sharing a button: small buttons at the top of each to switch between them.
+    if (g.ids.length > 1) {
+      panel.append(h('div', { class: 'insp-sub', role: 'group', 'aria-label': g.label },
+        ...g.ids.map((x) => h('button', { class: 'insp-subtab', 'aria-pressed': String(x === id), onClick: () => pickTab(kind, x) }, labelOf.get(x)))));
+    }
+    panel.append(...groups.get(id));
+    panel.hidden = id !== active;
     panels.push(panel);
   }
   // Left / right arrows move between tabs.
@@ -3142,11 +3182,10 @@ function tabify(ins, kind) {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     e.preventDefault();
     e.stopPropagation();
-    const ids = live.map(([id]) => id);
-    const i = ids.indexOf(tabChoice[kind] && ids.includes(tabChoice[kind]) ? tabChoice[kind] : ids[0]);
-    const next = ids[(i + (e.key === 'ArrowRight' ? 1 : -1) + ids.length) % ids.length];
-    pickTab(kind, next);
-    const b = document.getElementById(`itab-${next}`);
+    const i = Math.max(0, entries.indexOf(groupOf(tabChoice[kind]) || entries[0]));
+    const next = entries[(i + (e.key === 'ArrowRight' ? 1 : -1) + entries.length) % entries.length];
+    pickTab(kind, next.ids[0]);
+    const b = document.getElementById(`itab-${next.tid}`);
     if (b) b.focus();
   });
   ins.textContent = '';
@@ -3155,21 +3194,23 @@ function tabify(ins, kind) {
 
 function pickTab(kind, id) {
   tabChoice[kind] = id;
-  try { localStorage.setItem('snippy.inspTabs', JSON.stringify(tabChoice)); } catch { /* not kept */ }
   const ins = $('#inspector');
   for (const t of ins.querySelectorAll('.insp-tab')) {
-    const on = t.id === `itab-${id}`;
+    const on = (t.dataset.tabs || '').split(' ').includes(id);
+    if (on) tabChoice[`${kind}:${t.id.slice(5)}`] = id; // each group remembers its last tab
     t.setAttribute('aria-selected', String(on));
     t.tabIndex = on ? 0 : -1;
+    if (on) t.setAttribute('aria-controls', `ipanel-${id}`);
   }
-  for (const p of ins.querySelectorAll('.insp-panel')) p.hidden = p.id !== `ipanel-${id}`;
+  try { localStorage.setItem('snippy.inspTabs', JSON.stringify(tabChoice)); } catch { /* not kept */ }
+  for (const p of ins.querySelectorAll('.insp-panel')) p.hidden = p.dataset.tab !== id;
   ins.scrollTop = 0;
 }
 
 // Opens a tab from elsewhere (for example the right-click menu).
 function showInspectorTab(id) {
   const kind = $('#inspector').dataset.kind;
-  if (document.getElementById(`itab-${id}`)) pickTab(kind, id);
+  if (document.getElementById(`ipanel-${id}`)) pickTab(kind, id);
 }
 
 function multiBanner() {
@@ -3349,20 +3390,12 @@ function renderClipInspector(ins, c) {
       if (state.clips[currentIndex] === c) { video.defaultPlaybackRate = v; video.playbackRate = v; }
     }),
     isImage(m) || c.mode === 'boomerang' ? null : rampSection(c),
-    segSection(state.clips[0] === c ? 'Fade in from black' : 'Transition from previous clip',
-      [[0, 'None'], [0.5, 'Short'], [1, 'Long']], c.transition || 0, (v) => {
-        c.transition = v;
-        if (v > 0 && !c.transitionType) c.transitionType = 'cross'; // new transitions crossfade
-      }),
-    state.clips[0] !== c && c.transition > 0 ? transitionPicker(c) : null,
-    state.clips[0] !== c && c.transition > 0 && TRANSITION_DIRS[c.transitionType]
-      ? segSection('Direction', TRANSITION_DIRS[c.transitionType].map((d) => [d, d[0].toUpperCase() + d.slice(1)]),
-        c.transitionDir || 'left', (v) => { c.transitionDir = v; })
-      : null,
-    state.clips.length > 2 && state.clips[0] !== c && c.transition > 0
-      ? h('div', { class: 'btn-row look-actions' },
-        h('button', { class: 'btn', onClick: () => transitionToAll(c) }, 'Use this transition on every cut'))
-      : null,
+    state.clips[0] === c
+      ? segSection('Fade in from black', [[0, 'None'], [0.5, 'Short'], [1, 'Long']], c.transition || 0, (v) => { c.transition = v; })
+      : section('Transition from previous clip', h('div', { class: 'xrow' },
+        h('span', { class: 'xrow-name' }, c.transition > 0 ? `${transitionName(c.transitionType || 'dip')} · ${(c.transition || 0).toFixed(1)} s` : 'None (a straight cut)'),
+        h('button', { class: 'btn small', onClick: (e) => openTransitionPop(state.clips.indexOf(c), e.currentTarget) }, c.transition > 0 ? 'Change' : 'Add')),
+        h('p', { class: 'hint' }, 'Tip: click the + between two clips on the timeline.')),
     state.clips[state.clips.length - 1] === c
       ? segSection('Fade out at the end', [[0, 'None'], [0.5, 'Short'], [1.5, 'Long']], c.endFade || 0, (v) => { c.endFade = v; })
       : null,
@@ -3396,37 +3429,208 @@ function renderClipInspector(ins, c) {
   );
 }
 
-// Style tiles. Hovering one plays its transition between two coloured cards.
-function transitionPicker(c) {
-  const current = c.transitionType || 'dip';
-  return section('Transition style', h('div', { class: 'tgrid', role: 'group', 'aria-label': 'Transition style' },
-    ...TRANSITIONS.map(([id, name]) => {
-      const L = { A: h('div', { class: 'ta' }, 'A'), B: h('div', { class: 'tb' }, 'B'), flash: h('div', { class: 'tflash' }) };
-      const stageEl = h('div', { class: 'tstage' }, L.A, L.B, L.flash);
-      let raf = 0;
-      const dir = TRANSITION_DIRS[id] ? (TRANSITION_DIRS[id].includes(c.transitionDir) ? c.transitionDir : 'left') : 'left';
-      const frame = (start) => (now) => {
-        const p = Math.min(1, ((now - start) % 1500) / 1000);
-        applyTransitionLook(L, id === 'pixelate' ? 'blur' : id, dir, p, 80, 45, now / 1000);
-        if (id === 'shake') { const tf = shakeTransform(now / 1000, start / 1000 + 0.1, 0.5, 45); if (tf) { L.A.style.transform = tf; L.B.style.transform = tf; } }
-        raf = requestAnimationFrame(frame(start));
-      };
-      return h('button', {
-        class: 'ttile', 'aria-pressed': String(current === id), title: name,
-        onMouseenter: () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame(performance.now())); },
-        onMouseleave: () => { cancelAnimationFrame(raf); resetTransitionLook(L); },
-        onClick: () => {
-          if (current === id) return;
-          commit();
-          c.transitionType = id;
-          if (TRANSITION_DIRS[id] && !TRANSITION_DIRS[id].includes(c.transitionDir)) c.transitionDir = 'left';
-          state.playhead = Math.min(state.playhead, totalDuration());
-          renderTimeline();
-          renderInspector();
-          refreshPreview();
-        },
-      }, stageEl, h('span', {}, name));
-    })));
+// A style tile: hovering it plays the transition between two coloured cards.
+function transitionTile(id, name, dirWanted, pressed, onPick) {
+  const L = { A: h('div', { class: 'ta' }, 'A'), B: h('div', { class: 'tb' }, 'B'), flash: h('div', { class: 'tflash' }) };
+  const stageEl = h('div', { class: 'tstage' }, L.A, L.B, L.flash);
+  let raf = 0;
+  const dir = TRANSITION_DIRS[id] ? (TRANSITION_DIRS[id].includes(dirWanted) ? dirWanted : 'left') : 'left';
+  const frame = (start) => (now) => {
+    const p = Math.min(1, ((now - start) % 1500) / 1000);
+    applyTransitionLook(L, id === 'pixelate' ? 'blur' : id, dir, p, 80, 45, now / 1000);
+    if (id === 'shake') { const tf = shakeTransform(now / 1000, start / 1000 + 0.1, 0.5, 45); if (tf) { L.A.style.transform = tf; L.B.style.transform = tf; } }
+    raf = requestAnimationFrame(frame(start));
+  };
+  const play = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame(performance.now())); };
+  const stop = () => { cancelAnimationFrame(raf); resetTransitionLook(L); };
+  return h('button', {
+    class: 'ttile', 'aria-pressed': String(pressed), title: name, 'data-x': id,
+    onMouseenter: play, onMouseleave: stop, onFocus: play, onBlur: stop,
+    onClick: onPick,
+  }, stageEl, h('span', {}, name));
+}
+
+// ---------- transition picker (from the + between clips)
+
+const X_GROUPS = [
+  ['all', 'All', null],
+  ['smooth', 'Smooth', ['cross', 'dip', 'blur', 'softwipe', 'circleopen', 'zoom']],
+  ['fast', 'Energetic', ['flash', 'whip', 'glitch', 'shake', 'spin', 'slices', 'zoom']],
+  ['shapes', 'Wipes and shapes', ['wipe', 'softwipe', 'push', 'circleopen', 'circleclose', 'clock', 'squeeze', 'pixelate']],
+];
+let xGroup = (() => { try { return localStorage.getItem('snippy.xGroup') || 'all'; } catch { return 'all'; } })();
+let xLast = { type: 'cross', len: 0.5 }; // what's used when a + is clicked and a style is picked first
+const xjoinIcon = () => {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.innerHTML = '<rect x="1.5" y="3.5" width="8" height="9" rx="1.5"/><rect x="6.5" y="3.5" width="8" height="9" rx="1.5"/>';
+  return svg;
+};
+
+function closeTransitionPop() {
+  const pop = $('#xPop');
+  if (pop) pop.remove();
+  document.removeEventListener('pointerdown', xOutside, true);
+  document.removeEventListener('keydown', xKeys, true);
+}
+function xOutside(e) {
+  const pop = $('#xPop');
+  if (pop && !pop.contains(e.target) && !e.target.closest('.xjoin') && !e.target.closest('.ctx-menu')) closeTransitionPop();
+}
+function xKeys(e) { if (e.key === 'Escape') { e.stopPropagation(); closeTransitionPop(); } }
+
+// Plays the cut: from a moment before it to a moment after.
+function previewCut(i) {
+  if (i < 1 || i >= state.clips.length) return;
+  const starts = clipStarts();
+  const ov = overlapOf(i);
+  const from = Math.max(0, starts[i] - 1.1);
+  const to = Math.min(totalDuration(), starts[i] + ov + 1.1);
+  if (state.playing) pause();
+  seek(from);
+  play();
+  clearTimeout(previewCut.timer);
+  previewCut.timer = setTimeout(() => { if (state.playing) pause(); }, Math.max(400, (to - from) * 1000));
+}
+
+function setTransition(c, patch) {
+  Object.assign(c, patch);
+  if (c.transitionType && TRANSITION_DIRS[c.transitionType] && !TRANSITION_DIRS[c.transitionType].includes(c.transitionDir)) c.transitionDir = 'left';
+  state.playhead = Math.min(state.playhead, totalDuration());
+  markDirty();
+  renderTimeline();
+  renderInspector();
+  refreshPreview();
+}
+
+// The picker for the cut into clip i, next to the button that opened it (or the clip).
+function openTransitionPop(i, anchor) {
+  closeTransitionPop();
+  const c = state.clips[i];
+  if (!c || i < 1) return;
+  if (state.playing) pause();
+  const pop = h('div', { id: 'xPop', class: 'xpop', role: 'dialog', 'aria-label': 'Transition' });
+  const draw = () => {
+    const cur = state.clips[i];
+    const on = cur.transition > 0;
+    const type = on ? (cur.transitionType || 'dip') : null;
+    pop.textContent = '';
+    const list = (X_GROUPS.find((g) => g[0] === xGroup) || X_GROUPS[0])[2];
+    const pick = (id) => () => {
+      commit();
+      const len = cur.transition > 0 ? cur.transition : xLast.len;
+      if (id === 'none') setTransition(cur, { transition: 0 });
+      else setTransition(cur, { transition: len, transitionType: id });
+      if (id !== 'none') xLast = { type: id, len };
+      draw();
+      if (id !== 'none') previewCut(i);
+    };
+    pop.append(
+      h('div', { class: 'xpop-head' },
+        h('b', {}, `Transition into clip ${i + 1}`),
+        h('span', { class: 'xpop-cur' }, on ? transitionName(type) : 'Straight cut'),
+        h('button', { class: 'icon-btn xpop-close', 'aria-label': 'Close', onClick: closeTransitionPop }, '×')),
+      h('div', { class: 'xpop-groups', role: 'group', 'aria-label': 'Kinds of transition' },
+        ...X_GROUPS.map(([id, label]) => h('button', {
+          class: 'chip', 'aria-pressed': String(xGroup === id),
+          onClick: () => { xGroup = id; try { localStorage.setItem('snippy.xGroup', id); } catch { /* not kept */ } draw(); },
+        }, label))),
+      h('div', { class: 'tgrid xpop-grid', role: 'group', 'aria-label': 'Transition style' },
+        h('button', { class: 'ttile tnone', 'aria-pressed': String(!on), title: 'No transition: a straight cut', onClick: pick('none') },
+          h('div', { class: 'tstage' }, h('div', { class: 'tnone-cut' })), h('span', {}, 'None')),
+        ...TRANSITIONS.filter(([id]) => !list || list.includes(id)).map(([id, name]) => transitionTile(id, name, cur.transitionDir, type === id, pick(id)))),
+    );
+    if (on) {
+      const max = Math.max(0.2, Math.min(2, clipLen(state.clips[i - 1]) / 2, clipLen(cur) / 2));
+      const val = h('span', { class: 'xpop-val' }, `${cur.transition.toFixed(1)} s`);
+      const range = h('input', { type: 'range', min: '0.2', max: max.toFixed(1), step: '0.1', value: String(Math.min(max, cur.transition)), 'aria-label': 'Transition length' });
+      range.addEventListener('input', () => {
+        commitOnce(`xlen:${cur.id}`);
+        cur.transition = Number(range.value);
+        xLast.len = cur.transition;
+        val.textContent = `${cur.transition.toFixed(1)} s`;
+        state.playhead = Math.min(state.playhead, totalDuration());
+        renderTimeline();
+        refreshPreview();
+        markDirty();
+      });
+      range.addEventListener('change', () => { renderInspector(); previewCut(i); });
+      pop.append(h('div', { class: 'xpop-row' }, h('span', {}, 'Length'), range, val));
+      if (TRANSITION_DIRS[type]) {
+        pop.append(h('div', { class: 'xpop-row' }, h('span', {}, 'Direction'),
+          h('div', { class: 'seg' }, ...TRANSITION_DIRS[type].map((d) => h('button', {
+            'aria-pressed': String((cur.transitionDir || 'left') === d),
+            onClick: () => { commit(); setTransition(cur, { transitionDir: d }); draw(); previewCut(i); },
+          }, d[0].toUpperCase() + d.slice(1))))));
+      }
+    }
+    const cuts = state.clips.length - 1;
+    pop.append(h('div', { class: 'xpop-actions' },
+      h('button', { class: 'btn small', onClick: () => previewCut(i), title: 'Play this cut' }, '▶ Preview'),
+      cuts > 1 && on ? h('button', { class: 'btn small', onClick: () => { transitionToAll(cur); draw(); } }, `Use on all ${cuts} cuts`) : null,
+      cuts > 1 ? h('button', { class: 'btn small', title: 'A different transition on every cut, from the kind picked above', onClick: () => { mixTransitions(list, on ? cur.transition : xLast.len); draw(); } }, '🎲 Mix it up') : null,
+      cuts > 1 && state.clips.some((x, k) => k > 0 && x.transition > 0) ? h('button', { class: 'btn small', onClick: () => { clearTransitions(); draw(); } }, 'Remove all') : null));
+    place();
+  };
+  const place = () => {
+    const r = anchor && anchor.isConnected ? anchor.getBoundingClientRect() : null;
+    const W = pop.offsetWidth || 440;
+    const H = pop.offsetHeight || 420;
+    let x = r ? r.left + r.width / 2 - W / 2 : (window.innerWidth - W) / 2;
+    let y = r ? r.top - H - 10 : (window.innerHeight - H) / 2;
+    if (r && y < 8) y = Math.min(window.innerHeight - H - 8, r.bottom + 10);
+    x = clamp(x, 8, window.innerWidth - W - 8);
+    y = clamp(y, 8, window.innerHeight - H - 8);
+    pop.style.left = `${Math.round(x)}px`;
+    pop.style.top = `${Math.round(y)}px`;
+  };
+  document.body.append(pop);
+  draw();
+  if (!anchor) {
+    const el = document.querySelector(`.xjoin[data-cut="${i}"]`);
+    if (el) { anchor = el; place(); }
+  }
+  setTimeout(() => {
+    document.addEventListener('pointerdown', xOutside, true);
+    document.addEventListener('keydown', xKeys, true);
+    const sel = pop.querySelector('.ttile[aria-pressed="true"]') || pop.querySelector('.ttile');
+    if (sel) sel.focus({ preventScroll: true });
+  });
+}
+
+// A different transition on every cut (never the same twice in a row), from one kind.
+function mixTransitions(list, len) {
+  const pool = (list || TRANSITIONS.map(([id]) => id)).filter((id) => id !== 'shake' || (list && list.length < 4));
+  commit();
+  let prev = null;
+  let n = 0;
+  state.clips.forEach((c, i) => {
+    if (i === 0) return;
+    const choices = pool.filter((id) => id !== prev);
+    const id = choices[Math.floor(Math.random() * choices.length)];
+    c.transition = len || 0.5;
+    c.transitionType = id;
+    if (TRANSITION_DIRS[id]) c.transitionDir = TRANSITION_DIRS[id][Math.floor(Math.random() * TRANSITION_DIRS[id].length)];
+    prev = id;
+    n++;
+  });
+  state.playhead = Math.min(state.playhead, totalDuration());
+  markDirty();
+  renderTimeline();
+  renderInspector();
+  refreshPreview();
+  toast(`Mixed ${n} transitions. Click Mix it up again for another mix`);
+}
+
+function clearTransitions() {
+  commit();
+  state.clips.forEach((c, i) => { if (i > 0) c.transition = 0; });
+  markDirty();
+  renderTimeline();
+  renderInspector();
+  refreshPreview();
+  toast('Removed the transitions');
 }
 
 function transitionToAll(src) {
@@ -6728,6 +6932,8 @@ function clipEntries(c, t) {
     { title: m ? m.name : 'Clip' },
     c.compound ? { label: 'Split back into the original clips', onClick: () => uncombineClip(c) } : null,
     { label: 'Split here', key: keyHint('split'), onClick: () => splitHere(t) },
+    state.clips.indexOf(c) > 0 ? { label: c.transition > 0 ? 'Change the transition into this clip…' : 'Add a transition into this clip…', onClick: () => openTransitionPop(state.clips.indexOf(c)) } : null,
+    state.clips.length > 2 ? { label: 'Transitions on every cut…', onClick: () => openTransitionPop(Math.max(1, state.clips.indexOf(c))) } : null,
     still ? null : { label: 'Freeze frame here', onClick: () => { seek(t); freezeFrame(); } },
     { label: 'Add or remove a keyframe here', key: keyHint('keyframe'), onClick: () => { seek(t); toggleKeyframeHere(); } },
     still || c.ramp ? null : {
@@ -8630,8 +8836,8 @@ function maskEditClip() {
   if (!s || s.kind !== 'clip' || selection.length > 1) return null;
   const c = itemOf(s);
   if (!c || !c.mask || c !== stageClip()) return null;
-  const tab = document.querySelector('#inspector .insp-tab[aria-selected="true"]');
-  return tab && tab.id === 'itab-mask' ? c : null;
+  const panel = document.getElementById('ipanel-mask');
+  return panel && !panel.hidden ? c : null;
 }
 
 function dragMask(e, c) {

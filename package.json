@@ -1,6 +1,6 @@
 {
   "name": "snippy",
-  "version": "0.40.0",
+  "version": "0.41.0",
   "description": "A free, playful desktop video editor",
   "main": "main.js",
   "scripts": {

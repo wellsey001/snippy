@@ -1296,3 +1296,12 @@ body:has(#acBar:not([hidden])) .toast { top: 62px; }
 .side-grip:hover::after, .side-grip.dragging::after, .side-grip:focus-visible::after { background: var(--accent); height: 90px; margin-top: -45px; }
 .side-grip:focus-visible { outline: none; }
 body.resizing-cols, body.resizing-cols * { cursor: col-resize !important; user-select: none !important; }
+
+/* ---------- AutoCut: what do you want? */
+.ac-ask textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 54px; }
+.ac-ask small { color: var(--muted); font-weight: 400; }
+.ac-understood { display: flex; flex-wrap: wrap; gap: 5px; margin-top: -4px; }
+.ac-understood:empty { display: none; }
+.ac-understood .ask-chip { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; background: rgba(192, 132, 252, .16); border: 1px solid rgba(192, 132, 252, .35); color: var(--text); }
+.ac-understood .ask-chip.avoid { background: rgba(248, 113, 113, .14); border-color: rgba(248, 113, 113, .35); }
+.ac-understood .ac-note { width: 100%; font-size: 11.5px; color: var(--muted); }

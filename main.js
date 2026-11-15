@@ -1737,6 +1737,106 @@ function ffmpegLog(args) {
     p.on('close', () => resolve(err));
   });
 }
+// ---------- looking for things in the pictures (AutoCut's "what do you want" box)
+// CLIP, a model that knows how well a picture fits a few words. Each clip is looked at once a
+// second; what it sees is kept on disk, so asking for something else later is quick.
+const CLIP_MODEL = 'Xenova/clip-vit-base-patch32';
+const LOOK_SIZE = 224;
+let clipKit = null;
+let lookJob = null;
+
+async function getClip(send) {
+  if (clipKit) return clipKit;
+  send({ phase: 'loading' });
+  const T = await loadTransformers();
+  const progress_callback = downloadProgress(send);
+  const tokenizer = await T.AutoTokenizer.from_pretrained(CLIP_MODEL, { progress_callback });
+  const processor = await T.AutoProcessor.from_pretrained(CLIP_MODEL, { progress_callback });
+  const text = await T.CLIPTextModelWithProjection.from_pretrained(CLIP_MODEL, { dtype: 'q8', progress_callback });
+  const vision = await T.CLIPVisionModelWithProjection.from_pretrained(CLIP_MODEL, { dtype: 'q8', progress_callback });
+  clipKit = { T, tokenizer, processor, text, vision };
+  return clipKit;
+}
+
+// Rows of a [n, d] tensor, each scaled to length 1 (so a dot product is the cosine similarity).
+function unitRows(t) {
+  const [n, d] = t.dims;
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const r = Array.from(t.data.subarray(i * d, (i + 1) * d));
+    const len = Math.hypot(...r) || 1;
+    rows.push(r.map((v) => v / len));
+  }
+  return rows;
+}
+
+// Square RGB frames from a video, one every `step` seconds (or one for a photo).
+async function* lookFrames(src, step, isImage, onProc) {
+  const vf = `${isImage ? '' : `fps=1/${step},`}scale=${LOOK_SIZE}:${LOOK_SIZE}:force_original_aspect_ratio=increase,crop=${LOOK_SIZE}:${LOOK_SIZE},format=rgb24`;
+  const p = spawn(FFMPEG, ['-v', 'error', '-i', src, '-vf', vf, ...(isImage ? ['-frames:v', '1'] : []), '-f', 'rawvideo', '-'], { windowsHide: true });
+  if (onProc) onProc(p);
+  const size = LOOK_SIZE * LOOK_SIZE * 3;
+  let pending = Buffer.alloc(0);
+  for await (const chunk of p.stdout) {
+    pending = pending.length ? Buffer.concat([pending, chunk]) : chunk;
+    while (pending.length >= size) {
+      yield new Uint8Array(pending.subarray(0, size));
+      pending = pending.subarray(size);
+    }
+  }
+}
+
+// What each picture looks like to CLIP: one list of numbers per frame, kept on disk.
+async function lookAt(item, kit, onFrame) {
+  const step = item.isImage ? 1 : item.step;
+  const file = cachePath('looks', item.path, `clip-v1-${step}`, 'json');
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* not done yet */ }
+  const embeds = [];
+  let proc = null;
+  try {
+    for await (const rgb of lookFrames(item.path, step, item.isImage, (p) => { proc = p; })) {
+      if (lookJob && lookJob.cancelled) throw new Error('cancelled');
+      const image = new kit.T.RawImage(new Uint8ClampedArray(rgb.buffer, rgb.byteOffset, rgb.length), LOOK_SIZE, LOOK_SIZE, 3);
+      const inputs = await kit.processor(image);
+      const { image_embeds } = await kit.vision(inputs);
+      embeds.push(unitRows(image_embeds)[0].map((v) => Math.round(v * 1e4) / 1e4));
+      if (onFrame) onFrame(embeds.length);
+    }
+  } finally {
+    if (proc && proc.exitCode === null) proc.kill();
+  }
+  try { fs.writeFileSync(file, JSON.stringify(embeds)); } catch { /* not kept */ }
+  return embeds;
+}
+
+// items: [{ id, path, duration, isImage, step }], phrases: ['the dog', …].
+// Returns { step, sims: { [id]: [ [similarity per frame] per phrase ] } }.
+ipcMain.handle('match:look', async (event, items, phrases) => {
+  if (lookJob) throw new Error('Already looking through clips.');
+  lookJob = { cancelled: false };
+  const send = (p) => { if (!event.sender.isDestroyed()) event.sender.send('match:progress', p); };
+  try {
+    const kit = await getClip(send);
+    const ti = kit.tokenizer(phrases.map((p) => `a photo of ${p}`), { padding: true, truncation: true });
+    const { text_embeds } = await kit.text(ti);
+    const words = unitRows(text_embeds);
+    const total = items.reduce((n, it) => n + (it.isImage ? 1 : Math.max(1, Math.ceil(it.duration / it.step))), 0);
+    let done = 0;
+    const sims = {};
+    for (const it of items) {
+      const before = done;
+      const embeds = await lookAt(it, kit, (n) => send({ phase: 'look', progress: Math.min(1, (before + n) / total) }));
+      done = before + (it.isImage ? 1 : Math.max(1, Math.ceil(it.duration / it.step)));
+      send({ phase: 'look', progress: Math.min(1, done / total) });
+      sims[it.id] = words.map((w) => embeds.map((e) => e.reduce((acc, v, k) => acc + v * w[k], 0)));
+    }
+    return { sims };
+  } finally {
+    lookJob = null;
+  }
+});
+ipcMain.handle('match:cancel', () => { if (lookJob) lookJob.cancelled = true; });
+
 ipcMain.handle('highlights:analyze', async (event, src, dur, hasAudio, id, opts) => {
   const step = 0.5;
   const n = Math.max(1, Math.ceil(dur / step));

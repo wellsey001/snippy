@@ -8364,6 +8364,7 @@ function acRefresh() {
   fillSeg($('#acKind'), [['montage', 'Montage, cut to music'], ['talking', 'Talking, keep what\'s said']], ac.kind, (v) => { ac.kind = v; try { localStorage.setItem('snippy.acKind', v); } catch { /* not kept */ } acRefresh(); });
   $('#acMontage').hidden = ac.kind !== 'montage';
   $('#acTalking').hidden = ac.kind !== 'talking';
+  acShowUnderstood();
   const box = $('#acMedia');
   box.textContent = '';
   for (const m of state.media.filter((x) => x.kind !== 'audio')) {
@@ -8584,14 +8585,16 @@ async function acBuildMontage(o) {
     }
     return variants;
   }
-  for (let v = 0; v < AC_STYLES.length; v++) {
-    const st = AC_STYLES[v];
+  const styles = acStylesFor(o.ask);
+  for (let v = 0; v < styles.length; v++) {
+    const st = styles[v];
     const tpl = { ...VIDEO_TEMPLATES.find((t) => t.id === st.base), ...st, stickers: null };
     const r = rng(o.seed * 7919 + v * 101);
     const sources = ms.map((m) => {
       if (isImage(m)) return { id: m.id, step: 0.5, photo: true, score: Array.from({ length: PHOTO_LEN * 2 }, () => 0.1 + (r() - 0.5) * 0.6) };
       const a = o.analysis.get(m.id);
-      return { id: m.id, step: a.step, score: acScore(a).map((x) => x + (r() - 0.5) * 0.9) };
+      const asked = acAskedScore(o, m, a.step, acScore(a).length);
+      return { id: m.id, step: a.step, score: acScore(a).map((x, k) => x + (r() - 0.5) * (asked ? 0.5 : 0.9) + (asked ? asked[k] : 0)) };
     });
     // Shot lengths on the real beat, in the style's rhythm.
     const maxL = Math.min(len, footage * 0.8);
@@ -8644,12 +8647,14 @@ async function acBuildMontage(o) {
         return { m: x.m, in: a0, out: Math.min(x.m.duration, a0 + d) };
       }));
     }
+    // Asked to open or end on something: the best match for it goes first or last.
+    acOpenEnd(shots, o);
     // Two shots from the same clip less than a second apart would look like a skip: the second
     // carries straight on from the first instead, so the cut can't be seen.
     for (let i = 1; i < shots.length; i++) {
       const p = shots[i - 1];
       const c = shots[i];
-      if (c.m !== p.m || isImage(c.m)) continue;
+      if (c.m !== p.m || isImage(c.m) || c.pinned) continue;
       const gap = c.in - p.out;
       if (gap < 1 && gap > -(p.out - p.in)) {
         const d = c.out - c.in;
@@ -8662,21 +8667,28 @@ async function acBuildMontage(o) {
       const sm = mediaById(musicId);
       const a = o.analysis.get(sm.id);
       const sc = a ? acScore(a) : null;
+      const askedSm = a && sc ? acAskedScore(o, sm, a.step, sc.length) : null;
       const first = beatsFrom.length > 4 ? beatsFrom[0] : musicFrom;
       let t = 0;
       for (const x of shots) {
         const d = x.out - x.in;
-        if (x.m === sm) {
+        if (x.m === sm && !x.pinned) {
           const at = first + t;
           const i0 = sc ? Math.floor(at / a.step) : 0;
           const i1 = sc ? Math.max(i0 + 1, Math.ceil((at + d) / a.step)) : 1;
-          const ok = !sc || sc.slice(i0, i1).reduce((n, v) => n + v, 0) / Math.max(1, i1 - i0) > -1.5;
+          let ok = !sc || sc.slice(i0, i1).reduce((n, v) => n + v, 0) / Math.max(1, i1 - i0) > -1.5;
+          // Not if it would swap something you asked for for something you didn't.
+          if (ok && askedSm) {
+            const mean = (p, q) => { const j0 = Math.floor(p / a.step); const j1 = Math.max(j0 + 1, Math.ceil(q / a.step)); return askedSm.slice(j0, j1).reduce((n, v) => n + v, 0) / Math.max(1, j1 - j0); };
+            ok = mean(at, at + d) >= mean(x.in, x.out) - 0.5;
+          }
           if (ok && at + d <= sm.duration) { x.in = at; x.out = at + d; }
         }
         t += d;
       }
     }
     await buildFromTemplate(tpl, { picks, musicId, maxLen: 0, title: o.title, shots, musicFrom, muteClips, beats: beatInfo, outro: false, endFade: 0.8 });
+    acSaidSound(shots, musicId);
     acBeatPolish(st, beatInfo, musicId);
     variants.push({ name: st.name, snap: snapshot() });
   }
@@ -8691,6 +8703,7 @@ const AC_TALK_LOOKS = [
 ];
 
 async function acBuildTalking(o, win) {
+  ac.topicNote = null;
   const vids = o.picks.map(mediaById).filter((m) => m && !isImage(m) && m.hasAudio);
   if (!vids.length) throw new Error('None of those clips have speech to keep. Try Montage instead.');
   // Cut out the pauses.
@@ -8713,6 +8726,11 @@ async function acBuildTalking(o, win) {
     }
   }
   if (!pieces.length) throw new Error('Snippy couldn\'t find any speech to keep in those clips.');
+  // Asked for particular topics or words: keep the sentences about them.
+  if (o.ask && (o.ask.want.length || o.ask.says.length)) {
+    const kept = await acTalkTopics(o, vids, pieces, win);
+    if (kept) pieces.splice(0, pieces.length, ...kept);
+  }
   // Sound all the way through with no pauses (music, a concert, wind) isn't someone talking.
   const fullLen = vids.reduce((n, m) => n + m.duration, 0);
   const keptLen = pieces.reduce((n, c) => n + (c.out - c.in), 0);
@@ -8778,7 +8796,14 @@ async function acGo(reshuffle = false) {
   const o = reshuffle ? { ...ac.opts, seed: ac.opts.seed + 1 } : {
     kind: ac.kind, picks: ac.picks.filter((id) => mediaById(id)), maxLen: Number($('#acLen').value) || 0,
     title: $('#acTitleText').value, captions: $('#acCaps').checked, bed: $('#acBed').checked, seed: Math.floor(Math.random() * 1e6), music: $('#acMusic').value,
+    ask: parsePrompt($('#acPrompt').value),
   };
+  // What was typed wins over the boxes it overlaps with.
+  if (!reshuffle && o.ask) {
+    if (o.ask.length) o.maxLen = o.ask.length;
+    if (o.ask.title && !o.title) o.title = o.ask.title;
+    if (o.ask.sound === 'clip') o.music = 'clip';
+  }
   if (!o.picks.length) { toast('Pick at least one clip or photo'); return; }
   $('#acModal').hidden = true;
   ac.busy = true;
@@ -8786,9 +8811,10 @@ async function acGo(reshuffle = false) {
   acInternal = true;
   if (!reshuffle) ac.before = snapshot();
   const undoLen = undoStack.length;
-  const win = jobWindow('AutoCut', () => { ac.cancel = true; window.api.cancelCaptions(); });
+  const win = jobWindow('AutoCut', () => { ac.cancel = true; window.api.cancelCaptions(); if (window.api.cancelMatch) window.api.cancelMatch(); });
   try {
     if (!reshuffle) {
+      try { localStorage.setItem('snippy.acPrompt', $('#acPrompt').value); } catch { /* not kept */ }
       o.musicId = await acResolveMusic(o.music);
       o.clipSound = o.music === 'clip' || (o.music === 'auto' && !o.musicId);
     }
@@ -8799,6 +8825,11 @@ async function acGo(reshuffle = false) {
     win.update('Watching your clips', 0);
     o.analysis = await acAnalyse(o.picks, win);
     if (ac.cancel) throw new Error('cancelled');
+    if (!reshuffle && o.ask) {
+      o.look = await acLook(o, win);
+      o.said = await acListen(o, win);
+      if (ac.cancel) throw new Error('cancelled');
+    }
     win.update(o.kind === 'montage' ? 'Cutting it together' : 'Tidying it up', 1);
     const variants = o.kind === 'montage' ? await acBuildMontage(o) : await acBuildTalking(o, win);
     if (!variants.length) throw new Error('Those clips are too short to cut together. Try more clips or a shorter length.');
@@ -8810,7 +8841,7 @@ async function acGo(reshuffle = false) {
     redoStack.length = 0;
     acShowBar();
     acShow(reshuffle ? Math.min(ac.active, variants.length - 1) : 0);
-    if (o.kind === 'talking' && ac.talkNote) toast(ac.talkNote);
+    if (o.kind === 'talking' && (ac.talkNote || ac.topicNote)) toast(ac.topicNote || ac.talkNote);
   } catch (err) {
     undoStack.length = undoLen;
     if (!reshuffle) restore(ac.before);
@@ -11315,3 +11346,280 @@ for (const which of ['left', 'right']) {
 }
 window.addEventListener('resize', () => applySideWidths());
 applySideWidths();
+
+
+// ---------- AutoCut: "what do you want?"
+
+const LOOK_STEP = 1; // seconds between the frames looked at
+
+// Shows what Snippy understood from the box, as you type.
+function acShowUnderstood() {
+  const box = $('#acUnderstood');
+  box.textContent = '';
+  const ask = parsePrompt($('#acPrompt').value);
+  // In the order a video runs: how long and how it feels, the opening, what's in it, the ending.
+  const rank = (u) => { const i = [/long|second|minute/i, /style|slow|order|music|sound|title/i, /^Open/, /^(More|Only)/, /^Leave/, /^End/].findIndex((r) => r.test(u)); return i < 0 ? 3 : i; };
+  for (const u of ask.understood.slice().sort((x, y) => rank(x) - rank(y))) box.append(h('span', { class: `ask-chip${/^Leave out/.test(u) ? ' avoid' : ''}` }, u));
+  if (needsLooking(ask) && ac.kind === 'montage') box.append(h('span', { class: 'ac-note' }, 'Snippy will look through your clips for these. The first time, it downloads a picture model (about 150 MB).'));
+  else if (needsLooking(ask) && ac.kind === 'talking') box.append(h('span', { class: 'ac-note' }, 'Snippy will keep the sentences about these.'));
+  if (needsListening(ask)) box.append(h('span', { class: 'ac-note' }, 'Snippy will listen for the words in quotes (using the speech model on your computer).'));
+}
+$('#acPrompt').addEventListener('input', acShowUnderstood);
+try { $('#acPrompt').value = localStorage.getItem('snippy.acPrompt') || ''; } catch { /* none */ }
+
+// Z-scores of a list (how far each value is above or below the rest).
+function zs(list) {
+  const n = list.length || 1;
+  const m = list.reduce((a, b) => a + b, 0) / n;
+  const sd = Math.sqrt(list.reduce((a, b) => a + (b - m) ** 2, 0) / n) || 1;
+  return list.map((v) => (v - m) / sd);
+}
+
+// Looks through the clips for what was asked for. Returns Map(mediaId → { want, avoid, start, end })
+// with one z-score per LOOK_STEP for each, or null if nothing needs looking for.
+async function acLook(o, win) {
+  const ask = o.ask;
+  if (!needsLooking(ask) || o.kind !== 'montage') return null;
+  const groups = { want: ask.want, avoid: ask.avoid, start: ask.start, end: ask.end };
+  const phrases = [...new Set(Object.values(groups).flat())];
+  const ms = o.picks.map(mediaById).filter(Boolean);
+  const items = ms.map((m) => ({ id: m.id, path: m.path, duration: isImage(m) ? 0 : m.duration, isImage: isImage(m), step: LOOK_STEP }));
+  win.update(`Looking for ${phrases.slice(0, 3).join(', ')}${phrases.length > 3 ? '…' : ''}`, 0);
+  const off = window.api.onMatchProgress((p) => {
+    if (p.phase === 'download') win.update(`Downloading the picture model (one time only) ${Math.round(p.progress * 100)}%`, p.progress);
+    else if (p.phase === 'loading') win.update('Getting the picture model ready', 0);
+    else win.update(`Looking for ${phrases.slice(0, 3).join(', ')}${phrases.length > 3 ? '…' : ''}`, p.progress);
+  });
+  let res;
+  try { res = await window.api.matchLook(items, phrases); } catch (err) {
+    if (ac.cancel) throw err;
+    toast(`Snippy couldn't look through the clips (${cleanError(err)}), so it went by everything else you asked`);
+    return null;
+  } finally { off(); }
+  // Each phrase scored against every frame of every clip, then compared across all of them.
+  // A phrase whose best frame is barely closer than a typical frame wasn't really seen anywhere: it
+  // counts for nothing (rather than picking whatever happened to score a hair higher).
+  const notSeen = [];
+  const all = phrases.map((p, pi) => {
+    const raw = ms.flatMap((m) => (res.sims[m.id] ? res.sims[m.id][pi] : []));
+    const sorted = raw.slice().sort((x, y) => x - y);
+    const gap = sorted.length ? sorted[sorted.length - 1] - sorted[Math.floor(sorted.length / 2)] : 0;
+    if (gap < 0.025) { notSeen.push(p); return raw.map(() => 0); }
+    return zs(raw);
+  });
+  if (notSeen.length) toast(`Couldn't spot ${notSeen.join(' or ')} in these clips`);
+  const out = new Map();
+  let at = 0;
+  for (const m of ms) {
+    const n = res.sims[m.id] ? res.sims[m.id][0].length : 0;
+    const part = (list) => {
+      if (!list.length) return null;
+      const idx = list.map((p) => phrases.indexOf(p));
+      return Array.from({ length: n }, (_, f) => Math.max(...idx.map((pi) => all[pi][at + f])));
+    };
+    out.set(m.id, { n, want: part(groups.want), avoid: part(groups.avoid), start: part(groups.start), end: part(groups.end) });
+    at += n;
+  }
+  return out;
+}
+
+// Listens for quoted words. Returns Map(mediaId → [{ s, e, where }]) or null.
+async function acListen(o, win) {
+  const ask = o.ask;
+  if (!needsListening(ask)) return null;
+  const out = new Map();
+  const ms = o.picks.map(mediaById).filter((m) => m && !isImage(m) && m.hasAudio);
+  for (let i = 0; i < ms.length; i++) {
+    const m = ms[i];
+    const words = await acWords(m, (p) => win.update(p.phase === 'download' ? `Downloading the speech model (one time only) ${Math.round(p.progress * 100)}%` : `Listening to ${m.name}`, (i + (p.progress || 0)) / ms.length));
+    if (!words) continue;
+    const hits = [];
+    for (const q of ask.says) for (const h0 of findSaid(words, q.p)) hits.push({ ...h0, where: q.where, phrase: q.p });
+    if (hits.length) out.set(m.id, hits);
+  }
+  const found = new Set([...out.values()].flat().map((x) => x.phrase));
+  const missing = ask.says.map((q) => q.p).filter((p) => !found.has(p));
+  if (missing.length) toast(`Couldn't hear ${missing.map((p) => `"${p}"`).join(' or ')} in these clips`);
+  return out;
+}
+
+// A clip's words with their times, from the speech model (kept, as Find Shorts does).
+async function acWords(m, onProgress) {
+  const key = 'shorts-v1|auto';
+  if (m.speech && m.speechKey === key) return m.speech;
+  try {
+    let words = await window.api.getTranscript(m.path, key);
+    if (!words) {
+      const off = window.api.onCaptionsProgress(onProgress);
+      try {
+        const groups = await window.api.generateCaptions([{ path: m.path, in: 0, out: m.duration, start: 0, hasAudio: true, speed: 1 }], { language: null, task: 'transcribe', maxWords: 4 });
+        words = flattenWords(groups);
+      } finally { off(); }
+      window.api.putTranscript(m.path, key, words);
+    }
+    m.speech = words;
+    m.speechKey = key;
+    return words;
+  } catch (err) {
+    if (ac.cancel) throw err;
+    return null;
+  }
+}
+
+// Extra points for each step of a clip, from what was asked for (null when nothing was).
+function acAskedScore(o, m, step, n) {
+  const L = o.look && o.look.get(m.id);
+  const S = o.said && o.said.get(m.id);
+  if (!L && !S) return null;
+  const out = new Array(n).fill(0);
+  for (let k = 0; k < n; k++) {
+    const t = k * step;
+    if (L && L.n) {
+      const f = Math.min(L.n - 1, Math.round(t / LOOK_STEP));
+      if (L.want) out[k] += 1.5 * Math.max(0, L.want[f]) + 0.4 * L.want[f] - (o.ask.only && L.want[f] < 0.3 ? 3 : 0);
+      if (L.avoid) out[k] -= 2 * Math.max(0, L.avoid[f] - 0.2);
+      if (L.start) out[k] += 0.9 * Math.max(0, L.start[f]);
+      if (L.end) out[k] += 0.9 * Math.max(0, L.end[f]);
+    }
+    if (S) for (const hit of S) if (t >= hit.s - 1 && t <= hit.e + 0.5) out[k] += 5;
+  }
+  return out;
+}
+
+// The styles, the one asked for first, with slow motion and order as asked.
+function acStylesFor(ask) {
+  let list = AC_STYLES.map((st) => ({ ...st }));
+  if (!ask) return list;
+  if (ask.style) list = [...list.filter((st) => st.name === ask.style), ...list.filter((st) => st.name !== ask.style)];
+  for (const st of list) {
+    if (ask.slowmo === true && !st.ramp) st.ramp = [1.3, 1, 0.4, 1, 1.3];
+    if (ask.slowmo === false) delete st.ramp;
+    if (ask.order === 'story') st.mix = false;
+    if (ask.order === 'mix') st.mix = true;
+  }
+  return list;
+}
+
+// How well a shot matches a list of per-frame scores (its average over the shot).
+function shotMatch(o, x, key) {
+  if (isImage(x.m)) {
+    const L = o.look && o.look.get(x.m.id);
+    return L && L[key] ? L[key][0] : -9;
+  }
+  const L = o.look && o.look.get(x.m.id);
+  let best = -9;
+  if (L && L[key] && L.n) {
+    const a = Math.floor(x.in / LOOK_STEP);
+    const b = Math.min(L.n - 1, Math.ceil(x.out / LOOK_STEP));
+    let sum = 0; let n = 0;
+    for (let f = a; f <= b; f++) { sum += L[key][f]; n++; }
+    if (n) best = sum / n;
+  }
+  const S = o.said && o.said.get(x.m.id);
+  if (S) for (const hit of S) if (hit.where === key && hit.s >= x.in - 0.1 && hit.e <= x.out + 0.15) best = Math.max(best, 10);
+  return best;
+}
+
+// Puts the best match for "start with…" first and "end with…" last. Each place keeps its length
+// (so the cuts stay on the beat). If none of the chosen shots shows it, the best moment in any of
+// the clips is used instead, so asking for an opening or ending always counts.
+function acOpenEnd(shots, o) {
+  if (!o.ask || shots.length < 2) return;
+  const ms = [...new Set(o.picks)].map(mediaById).filter(Boolean);
+  // The best moment for key across all the clips: { m, t (centre), s, e (must be kept), v }.
+  const bestMoment = (key) => {
+    let best = null;
+    for (const m of ms) {
+      const S = o.said && o.said.get(m.id);
+      if (S) for (const hit of S) if (hit.where === key && (!best || best.v < 10)) best = { m, t: (hit.s + hit.e) / 2, s: hit.s - 0.2, e: hit.e + 0.4, v: 10 };
+      const L = o.look && o.look.get(m.id);
+      if (!L || !L[key]) continue;
+      L[key].forEach((v, f) => { if (v > 0.8 && (!best || v > best.v)) best = { m, t: isImage(m) ? 0 : f * LOOK_STEP, v }; });
+    }
+    return best;
+  };
+  const place = (i, key) => {
+    const d = shots[i].out - shots[i].in;
+    const b = bestMoment(key);
+    if (!b) return;
+    // Already the best: leave it be.
+    if (shotMatch(o, shots[i], key) >= b.v - 0.3) { shots[i].pinned = true; shots[i].said = b.v >= 10; return; }
+    // The said words must fit: the shot may grow to hold them (the next cut moves a little).
+    const len = b.s != null ? Math.max(d, b.e - b.s) : d;
+    let a0;
+    if (isImage(b.m)) a0 = 0;
+    else if (b.s != null) a0 = clamp(key === 'end' ? b.e - len : b.s, 0, Math.max(0, b.m.duration - len));
+    else a0 = clamp(b.t - len / 2, 0, Math.max(0, b.m.duration - len));
+    const out = isImage(b.m) ? len : Math.min(b.m.duration, a0 + len);
+    // If that moment is already used elsewhere, that shot gives way to what the place had.
+    const j = shots.findIndex((x, k) => k !== i && x.m === b.m && x.in < out && x.out > a0);
+    if (j >= 0) { const dj = shots[j].out - shots[j].in; const old = shots[i]; const c = (old.in + old.out) / 2; const s0 = isImage(old.m) ? 0 : clamp(c - dj / 2, 0, Math.max(0, old.m.duration - dj)); shots[j] = { ...old, in: s0, out: isImage(old.m) ? dj : Math.min(old.m.duration, s0 + dj) }; }
+    shots[i] = { ...shots[i], m: b.m, in: a0, out, pinned: true, said: b.s != null };
+  };
+  if (o.ask.start.length || o.ask.says.some((q) => q.where === 'start')) place(0, 'start');
+  if (o.ask.end.length || o.ask.says.some((q) => q.where === 'end')) place(shots.length - 1, 'end');
+}
+
+// Talking clips: keep the sentences about what was asked for (in order), up to the length asked.
+async function acTalkTopics(o, vids, pieces, win) {
+  const topics = [...o.ask.want];
+  const says = o.ask.says.map((q) => q.p);
+  const sentences = [];
+  for (let i = 0; i < vids.length; i++) {
+    const m = vids[i];
+    const words = await acWords(m, (p) => win.update(p.phase === 'download' ? `Downloading the speech model (one time only) ${Math.round(p.progress * 100)}%` : `Listening to ${m.name} for what you asked`, (i + (p.progress || 0)) / vids.length));
+    if (!words) continue;
+    for (const snt of sentencesOf(words)) {
+      let score = topics.length ? topicScore(snt.text, topics) : 0;
+      if (says.some((p) => findSaid(snt.words, p).length)) score = 2;
+      sentences.push({ m, s: snt.s - 0.15, e: snt.e + 0.25, score, text: snt.text });
+    }
+  }
+  if (!sentences.length) return null;
+  let keep = topics.length || says.length ? sentences.filter((x) => x.score >= 0.5) : sentences.slice();
+  if (!keep.length) {
+    toast(`Nothing was said about ${[...topics, ...says].slice(0, 3).join(', ')}, so everything was kept`);
+    return null;
+  }
+  // A length asked for: the most relevant sentences that fit, still in the order they were said.
+  if (o.maxLen) {
+    const ranked = keep.map((x, i) => ({ ...x, i })).sort((a, b) => b.score - a.score || a.i - b.i);
+    let t = 0;
+    const chosen = new Set();
+    for (const x of ranked) { if (t + (x.e - x.s) > o.maxLen + 1 && chosen.size) continue; chosen.add(x.i); t += x.e - x.s; }
+    keep = keep.filter((_, i) => chosen.has(i));
+  }
+  // The pause-free pieces, trimmed to the kept sentences.
+  const out = [];
+  for (const c of pieces) {
+    for (const x of keep) {
+      if (x.m.id !== c.mediaId) continue;
+      const a = Math.max(c.in, x.s);
+      const b = Math.min(c.out, x.e);
+      if (b - a >= 0.25) out.push({ ...clone(c), id: newId('c'), in: a, out: b });
+    }
+  }
+  if (!out.length) return null;
+  ac.topicNote = `Kept ${keep.length} sentence${keep.length === 1 ? '' : 's'}${topics.length ? ` about ${topics.slice(0, 3).join(', ')}` : ''}.`;
+  return out;
+}
+
+// A shot placed for its words ("end where he says…") is heard: its own sound comes up, and the
+// music fades out under it (or, for an opening, rises in under it).
+function acSaidSound(shots, musicId) {
+  const music = state.audio.find((a) => a.mediaId === musicId);
+  const starts = clipStarts();
+  shots.forEach((x, i) => {
+    const c = state.clips[i];
+    if (!x.said || !c || !x.m.hasAudio) return;
+    c.volume = 1;
+    if (!music) return;
+    if (i === state.clips.length - 1 && i > 0) {
+      const end = starts[i] + 0.5 - music.start;
+      if (end > 1 && music.in + end < music.out) { music.out = music.in + end; music.fadeOut = 0.8; }
+    } else if (i === 0 && state.clips.length > 1) {
+      // The music stays on the beat, rising in under the words.
+      music.fadeIn = Math.max(music.fadeIn || 0, clipLen(c));
+    }
+  });
+}

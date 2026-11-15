@@ -555,6 +555,10 @@
       <div class="modal-form">
         <div class="field">What kind of video? <div id="acKind" class="seg" role="group" aria-label="Kind of video"></div></div>
         <div class="field"><span>Clips and photos, in order (click to add or remove)</span> <div id="acMedia" class="vtpl-media"></div></div>
+        <label class="field ac-ask"><span>What do you want? <small>(optional)</small></span>
+          <textarea id="acPrompt" class="text-input" rows="2" maxlength="400" placeholder="For example: 30 seconds, fast, start with the sunset, lots of the dog, no shots of the car, end on &quot;see you next time&quot;"></textarea>
+        </label>
+        <div id="acUnderstood" class="ac-understood" aria-live="polite"></div>
         <div id="acMontage">
           <div class="vo-row">
             <label class="field">Music <select id="acMusic"></select></label>
@@ -739,6 +743,7 @@
   <script src="plans.js"></script>
   <script src="captions.js"></script>
   <script src="shorts.js"></script>
+  <script src="prompt.js"></script>
   <script src="transitions.js"></script>
   <script src="app.js"></script>
 </body>

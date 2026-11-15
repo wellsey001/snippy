@@ -21,7 +21,7 @@ Edit like CapCut, with no watermark, no account and no subscription. Everything 
 
 | | |
 |---|---|
-| **AutoCut** | Pick your clips and a song, and Snippy edits them on the beat for you, then lets you flip between finished versions (Smooth, Energetic, Cinematic, Memories). It can also turn talking clips into a tight edit with captions. |
+| **AutoCut** | Pick your clips and a song, and Snippy edits them on the beat for you, then lets you flip between finished versions (Smooth, Energetic, Cinematic, Memories). It can also turn talking clips into a tight edit with captions. Optionally, type what you want (*"30 seconds, start with the sunset, lots of the dog, no shots of the car, end where he says 'see you next time'"*) and AutoCut looks and listens through your clips to match it. |
 | **Find Shorts** | Drop in a long podcast, stream or vlog. Snippy finds the moments that work on their own and exports them as portrait Shorts with captions, the speaker kept in shot. |
 | **Auto captions** | Speech-to-text runs on your PC in about 100 languages, timed word by word, with animated caption looks (Bold box, Karaoke, Bounce, Neon and more) and auto emoji. |
 | **Keyframes and motion** | Move, zoom and turn anything straight on the preview, add keyframes with one click, and track a moving person or object so text, stickers and blur boxes follow it. |
@@ -104,6 +104,7 @@ The installer is under 1 MB and downloads the rest of Snippy while it installs. 
 <summary><b>Smart tools</b></summary>
 
 - **AutoCut:** montage and talking-head edits made for you, in several versions to choose from
+- **AutoCut prompt (optional):** describe what you want in plain words (length, style, what to show more of or leave out, how to open and end, words someone says, topics to keep from talking clips) and AutoCut matches it, showing what it understood as you type
 - **Find Shorts:** the best moments of a long video, as captioned portrait Shorts
 - **Templates:** Quick cuts, Smooth travel, Hype, Memories, Photo slideshow and Day in my life, cut to your song
 - **Auto edit:** a highlight reel from long footage

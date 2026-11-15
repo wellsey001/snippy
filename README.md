@@ -91,7 +91,13 @@ The installer is under 1 MB and downloads the rest of Snippy while it installs. 
 
 - Colour looks, curves, .cube LUTs, and brightness, contrast and saturation
 - Touch up: light, medium or strong skin smoothing with a little extra light, for faces close to the camera
-- Effects: grain, VHS, old film, glitch and shake. Stabilise for shaky footage
+- **Effects library** (35 effects, in an Effects tab beside your media; hover over one to see it play, click to try it on the preview):
+  - *Camera & motion:* zoom blur, sway, slow push, wobble, mirror, mirror ×4, split ×4, fisheye, shake, glitch
+  - *Light & colour:* light leak, lens flare, glow, neon edges, rainbow, strobe, red pop, noir, duotone
+  - *Retro & texture:* film burn, dust & scratches, 8mm film, CRT TV, 8-bit, halftone, comic, sketch, grain, VHS, old film
+  - *Party & beat:* beat flash, beat zoom, beat shake, RGB split and colour jump, in time with your music's beat
+  - Put one on a clip, or drag it onto the timeline to cover any stretch, across cuts. Each has a strength slider, and the export matches the preview
+- Stabilise for shaky footage
 - Beat detection: cut clips to the beat, with beats rated by how hard they hit
 - Auto-duck music under speech, reduce background noise, studio voice, and even out loudness
 - Voice changer (chipmunk, deep, robot, echo, radio, alien) and sound effects, including a free pack of 28 real recordings

@@ -1385,6 +1385,7 @@ function tick() {
   }
   updateMaskPreview();
   drawLutLayers();
+  drawFxLayers();
   applyAdjustLayers();
   requestAnimationFrame(tick);
 }
@@ -1479,7 +1480,7 @@ const FREE_KINDS = new Set(['text', 'sticker', 'audio', 'overlay', 'adjust']); /
 // Track controls (see setTrack, further down).
 const TRACK_OF = { clip: 'video', text: 'text', sticker: 'sticker', overlay: 'overlay', audio: 'audio', adjust: 'adjust' };
 const TRACK_ROWS = ['adjust', 'sticker', 'text', 'overlay', 'video', 'audio']; // top to bottom, as on screen
-const TRACK_NAME = { adjust: 'Adjustment', sticker: 'Stickers', text: 'Text', overlay: 'Overlay', video: 'Video', audio: 'Audio' };
+const TRACK_NAME = { adjust: 'Effects & adjust', sticker: 'Stickers', text: 'Text', overlay: 'Overlay', video: 'Video', audio: 'Audio' };
 const TRACK_HAS = {
   adjust: ['lock', 'hide'], sticker: ['lock', 'hide'], text: ['lock', 'hide'],
   overlay: ['lock', 'hide', 'mute', 'solo'], video: ['lock', 'hide', 'mute', 'solo'], audio: ['lock', 'mute', 'solo'],
@@ -1563,9 +1564,10 @@ function renderTimeline() {
   const adt = $('#adjustTrack');
   adt.textContent = '';
   for (const x of state.adjust) {
-    const el = h('div', { class: `adjust-item${isSel('adjust', x.id) ? ' selected' : ''}`, 'data-id': x.id },
+    const fxe = SnippyFx.isNew(x.effect) ? SnippyFx.byId[x.effect] : null;
+    const el = h('div', { class: `adjust-item${fxe ? ' effect-item' : ''}${isSel('adjust', x.id) ? ' selected' : ''}`, 'data-id': x.id },
       h('div', { class: 'handle l' }), h('div', { class: 'handle r' }),
-      h('span', { class: 'text-label' }, `Adjust  ${fmt(x.dur)}`));
+      h('span', { class: 'text-label' }, `${fxe ? `✦ ${fxe.name}` : 'Adjust'}  ${fmt(x.dur)}`));
     el.style.left = `${x.start * z}px`;
     el.style.width = `${Math.max(6, x.dur * z)}px`;
     adt.append(el);
@@ -1797,7 +1799,7 @@ let grainImage = null;
 
 function updateFx() {
   const c = state.clips[currentIndex];
-  const fx = c && c.fx && c.fx !== 'none' ? c.fx : null;
+  const fx = c && c.fx && c.fx !== 'none' && !SnippyFx.isNew(c.fx) ? c.fx : null;
   const base = c ? cssFilter(c) : 'none';
   const layer = $('#fxLayer');
   const zoomT = c ? clipZoomTransform(c, Math.max(0, state.playhead - clipStarts()[currentIndex])) : '';
@@ -3559,16 +3561,7 @@ function renderClipInspector(ins, c) {
     c.touch && state.clips.length > 1 ? h('div', { class: 'btn-row look-actions' }, h('button', {
       class: 'btn', onClick: () => { commit(); for (const x of state.clips) x.touch = c.touch; markDirty(); renderInspector(); toast(`Touch up on all ${state.clips.length} clips`); },
     }, 'Use on all clips')) : null,
-    section('Effect', h('div', { class: 'choices', role: 'group', 'aria-label': 'Effect' },
-      ...FX_LIST.map(([v, label]) => h('button', {
-        class: 'btn', 'aria-pressed': String((c.fx || 'none') === v),
-        onClick: () => { if ((c.fx || 'none') === v) return; commit(); c.fx = v; updateFx(); renderInspector(); },
-      }, label)))),
-    state.clips.length > 1 && c.fx && c.fx !== 'none'
-      ? h('div', { class: 'btn-row look-actions' }, h('button', {
-        class: 'btn', onClick: () => { commit(); for (const x of state.clips) x.fx = c.fx; updateFx(); toast(`Added the effect to ${state.clips.length} clips`); },
-      }, 'Use this effect on all clips'))
-      : null,
+    effectSection(c),
     lookSection(c, m),
     ...adjustSliders(c),
     curveSection(c),
@@ -4547,10 +4540,14 @@ function applyAdjustLayers() {
 function renderAdjustInspector(ins, x) {
   const refresh = () => { adjustKey = ''; applyAdjustLayers(); };
   const m = { thumb: (state.clips[0] && mediaById(state.clips[0].mediaId) || {}).thumb };
+  const isFx = SnippyFx.isNew(x.effect);
   put(ins,
-    section('Adjustment layer',
-      h('p', { class: 'hint' }, 'Colours everything underneath it (clips and overlays) while it lasts. Drag its edges on the timeline to change when.'),
+    section(isFx ? 'Effect layer' : 'Adjustment layer',
+      h('p', { class: 'hint' }, isFx
+        ? 'Adds the effect to the video underneath while it lasts (text and stickers stay clear). Drag its edges on the timeline to change when.'
+        : 'Colours everything underneath it (clips and overlays) while it lasts. Drag its edges on the timeline to change when.'),
       kv('Starts at', fmt(x.start)), kv('Length', fmt(x.dur))),
+    isFx ? effectSection(x, 'effect') : null,
     section('Look', h('div', { class: 'looks', role: 'group', 'aria-label': 'Look' },
       ...LOOKS.map((l) => {
         const img = m.thumb ? h('img', { src: m.thumb, alt: '' }) : h('div', { class: 'look-blank' });
@@ -6328,7 +6325,7 @@ function buildExportProject(settings, width, height) {
     clips: state.clips.map((c, i) => {
       const m = mediaById(c.mediaId);
       return {
-        path: m.path, isImage: isImage(m), in: c.in, out: c.out, hasAudio: m.hasAudio, speed: spd(c), color: colorSteps(c), curve: c.curve || null, lut: c.lut || null, fx: c.fx || null, denoise: Boolean(c.denoise),
+        path: m.path, isImage: isImage(m), in: c.in, out: c.out, hasAudio: m.hasAudio, speed: spd(c), color: colorSteps(c), curve: c.curve || null, lut: c.lut || null, fx: c.fx || null, fxK: c.fxK ?? null, fxBeats: SnippyFx.isNew(c.fx) ? localBeats(clipStarts()[i], clipLen(c)) : null, denoise: Boolean(c.denoise),
         touch: touchOf(c) ? { op: touchOf(c).op, bright: touchOf(c).bright, sigma: Number((touchOf(c).k * Math.min(height, (width * (m.height || 9)) / (m.width || 16))).toFixed(2)) } : null,
         mode: !isImage(m) && c.mode ? c.mode : null, ramp: !isImage(m) && rampFor(c) ? c.ramp : null, stab: !isImage(m) && c.stab ? c.stab : null, voice: c.voice && c.voice !== 'none' ? c.voice : null,
         motion: { zoom: c.zoom ?? 1, posX: c.posX || 0, posY: c.posY || 0, rotate: c.rotate || 0, flipH: Boolean(c.flipH), flipV: Boolean(c.flipV), keys: c.keys },
@@ -6348,6 +6345,10 @@ function buildExportProject(settings, width, height) {
         .filter((o) => trackGain('overlay') > 0 && !trackHidden('overlay') && o.start < total && o.volume > 0 && mediaById(o.mediaId).hasAudio)
         .map((o) => ({ path: mediaById(o.mediaId).path, in: o.in, out: o.out, start: o.start, volume: o.volume, fadeIn: 0, fadeOut: 0 }))),
     adjust: (trackHidden('adjust') ? [] : state.adjust || []).filter((x) => x.start < total).map((x) => ({ start: x.start, dur: Math.min(x.dur, total - x.start), color: colorSteps(x), curve: x.curve || null })),
+    effects: (trackHidden('adjust') ? [] : state.adjust || []).filter((x) => x.start < total && SnippyFx.isNew(x.effect)).map((x) => {
+      const dur = Math.min(x.dur, total - x.start);
+      return { id: x.effect, start: x.start, dur, k: x.fxK ?? SnippyFx.DEFAULT_K, beats: localBeats(x.start, dur) };
+    }),
     overlays: (trackHidden('overlay') ? [] : stacked())
       .filter((o) => o.start < total)
       .map((o) => {
@@ -11673,5 +11674,412 @@ function acSaidSound(shots, musicId) {
       // The music stays on the beat, rising in under the words.
       music.fadeIn = Math.max(music.fadeIn || 0, clipLen(c));
     }
+  });
+}
+
+
+// ---------- effects library (preview): every effect drawn on the graphics card, from the same
+// numbers the export's FFmpeg filters use (src/effects.js).
+
+// Music beats on the timeline (from songs that have their beats found).
+function timelineBeats() {
+  const out = [];
+  for (const a of state.audio) {
+    if (!a.beats || !a.beats.length) continue;
+    for (const b of a.beats) if (b >= a.in && b <= a.out) out.push(a.start + (b - a.in));
+  }
+  return out.sort((x, y) => x - y);
+}
+// Beat times as seconds from `start`, for an effect lasting `dur`.
+function localBeats(start, dur) {
+  const all = timelineBeats();
+  return all.length ? SnippyFx.beatList(all.map((b) => b - start), dur) : null;
+}
+
+class FxView {
+  constructor(layer) {
+    this.canvas = h('canvas', { class: 'fx-view' });
+    this.canvas.hidden = true;
+    layer.append(this.canvas);
+    this.gl = this.canvas.getContext('webgl2', { premultipliedAlpha: false, preserveDrawingBuffer: true });
+    this.hid = null;
+    if (!this.gl) return;
+    const gl = this.gl;
+    const vs = `#version 300 es
+in vec2 p; out vec2 uv; void main() { uv = vec2(p.x * .5 + .5, .5 - p.y * .5); gl_Position = vec4(p, 0, 1); }`;
+    const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) console.error('[fx]', gl.getShaderInfoLog(x)); return x; };
+    const pr = gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, vs));
+    gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, SnippyFx.shaderSource()));
+    gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) { console.error('[fx]', gl.getProgramInfoLog(pr)); this.gl = null; return; }
+    gl.useProgram(pr);
+    this.pr = pr;
+    this.u = {};
+    for (const n of ['img', 'fx', 't', 'k', 'env', 'bc', 'dur', 'ar', 'res', 'flip']) this.u[n] = gl.getUniformLocation(pr, n);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(pr, 'p');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const tex = () => {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+      return t;
+    };
+    this.srcTex = tex();
+    this.pp = [0, 1].map(() => ({ tex: tex(), fb: gl.createFramebuffer(), w: 0, h: 0 }));
+  }
+
+  hide() {
+    if (!this.canvas.hidden) this.canvas.hidden = true;
+    if (this.hid) { this.hid.style.opacity = ''; this.hid = null; }
+  }
+
+  // passes: [{ id, t, k, dur, env, bc }], applied in order.
+  draw(src, passes) {
+    const gl = this.gl;
+    const w = src.videoWidth || src.naturalWidth || src.width;
+    const hh = src.videoHeight || src.naturalHeight || src.height;
+    if (!gl || !passes.length || !w || !hh || (src.readyState != null && src.readyState < 2)) { this.hide(); return false; }
+    const scale = Math.min(1, 1600 / Math.max(w, hh));
+    const cw = Math.max(2, Math.round(w * scale));
+    const ch = Math.max(2, Math.round(hh * scale));
+    if (this.canvas.width !== cw || this.canvas.height !== ch) { this.canvas.width = cw; this.canvas.height = ch; }
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.srcTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    try { gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src); } catch { this.hide(); return false; }
+    gl.uniform1i(this.u.img, 0);
+    gl.uniform2f(this.u.res, cw, ch);
+    gl.uniform1f(this.u.ar, cw / ch);
+    let input = this.srcTex;
+    passes.forEach((p, i) => {
+      const last = i === passes.length - 1;
+      const target = last ? null : this.pp[i % 2];
+      if (target && (target.w !== cw || target.h !== ch)) {
+        gl.bindTexture(gl.TEXTURE_2D, target.tex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, cw, ch, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target.tex, 0);
+        target.w = cw; target.h = ch;
+      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fb : null);
+      gl.viewport(0, 0, cw, ch);
+      gl.bindTexture(gl.TEXTURE_2D, input);
+      // A pass drawn into a texture comes out upside down; the next pass reads it the other way up.
+      gl.uniform1f(this.u.flip, i > 0 ? 1 : 0);
+      gl.uniform1i(this.u.fx, SnippyFx.shaderIndex(p.id));
+      gl.uniform1f(this.u.t, p.t);
+      gl.uniform1f(this.u.k, p.k);
+      gl.uniform1f(this.u.dur, p.dur);
+      gl.uniform1f(this.u.env, p.env);
+      gl.uniform1f(this.u.bc, p.bc);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      if (target) input = target.tex;
+    });
+    // The canvas takes the picture's place, with the same colour, zoom and crop on top.
+    for (const k of ['filter', 'transform', 'transformOrigin', 'clipPath', 'maskImage', 'webkitMaskImage']) this.canvas.style[k] = src.style[k];
+    this.canvas.style.maskSize = '100% 100%';
+    this.canvas.style.webkitMaskSize = '100% 100%';
+    this.canvas.hidden = false;
+    if (this.hid && this.hid !== src) this.hid.style.opacity = '';
+    src.style.opacity = '0';
+    this.hid = src;
+    return true;
+  }
+}
+
+function fxPass(id, k, t, dur, start) {
+  const beats = localBeats(start, dur);
+  return { id, k: k ?? SnippyFx.DEFAULT_K, t, dur, env: SnippyFx.envAt(beats, t), bc: SnippyFx.countAt(beats, t) };
+}
+// The effects showing on a clip at timeline time t: its own, then any on the timeline over it.
+function fxPassesFor(c, clipStart, t) {
+  const out = [];
+  if (c && SnippyFx.isNew(c.fx)) out.push(fxPass(c.fx, c.fxK, t - clipStart, clipLen(c), clipStart));
+  if (!trackHidden('adjust')) {
+    for (const x of state.adjust) if (SnippyFx.isNew(x.effect) && t >= x.start && t < x.start + x.dur) out.push(fxPass(x.effect, x.fxK, t - x.start, x.dur, x.start));
+  }
+  return out;
+}
+
+let fxA = null;
+let fxB = null;
+let fxTry = null; // an effect being tried out from the Effects panel: { id, until }
+function drawFxLayers() {
+  if (!fxA) { fxA = new FxView($('#layerA')); fxB = new FxView($('#layerB')); }
+  const t = state.playhead;
+  const loc = state.clips.length ? locate(t) : null;
+  const srcA = lutA && !lutA.canvas.hidden ? lutA.canvas : (still.hidden ? video : still);
+  let passes = loc ? fxPassesFor(loc.clip, loc.start, t) : [];
+  if (fxTry && loc) passes = [...passes.filter((p) => p.id !== fxTry.id), fxPass(fxTry.id, fxTry.k, (performance.now() - fxTry.t0) / 1000, 3, t)];
+  if (passes.length) fxA.draw(srcA, passes); else fxA.hide();
+  const x = crossAt(t);
+  const srcB = lutB && !lutB.canvas.hidden ? lutB.canvas : (stillB.hidden ? videoB : stillB);
+  const pb = x && !$('#layerB').hidden ? fxPassesFor(x.clip, clipStarts()[x.index], t) : [];
+  if (pb.length) fxB.draw(srcB, pb); else fxB.hide();
+}
+
+
+// ---------- choosing effects: on a clip (its fx) or on the timeline (an item's effect)
+
+function fxOptions(cur) {
+  const sel = h('select', { 'aria-label': 'Effect' }, h('option', { value: 'none' }, 'None'));
+  for (const [cat, name] of SnippyFx.CATS) {
+    const g = h('optgroup', { label: name });
+    for (const e of SnippyFx.ALL.filter((x) => x.cat === cat)) g.append(h('option', { value: e.id }, e.name));
+    sel.append(g);
+  }
+  sel.value = cur || 'none';
+  return sel;
+}
+
+function effectSection(item, field = 'fx') {
+  const cur = item[field] || 'none';
+  const e = SnippyFx.byId[cur];
+  const sel = fxOptions(cur);
+  sel.addEventListener('change', () => {
+    commit();
+    if (sel.value === 'none' && field === 'effect') delete item.effect;
+    else item[field] = sel.value;
+    updateFx(); markDirty(); renderTimeline(); renderInspector(); renderFxGrid();
+  });
+  const kids = [h('div', { class: 'row' }, sel, h('button', { class: 'btn', onClick: () => showLibrary('fx') }, 'Browse…'))];
+  if (e && e.desc) kids.push(h('p', { class: 'hint' }, `${e.desc}${e.beat ? (timelineBeats().length ? ', in time with your music.' : '. Add music with its beat found to follow it; until then it pulses at 120 beats a minute.') : '.'}`));
+  const out = [section('Effect', ...kids)];
+  if (SnippyFx.isNew(cur)) {
+    out.push(sliderSection('Effect strength', {
+      min: 0.1, max: 1, step: 0.05, value: item.fxK ?? SnippyFx.DEFAULT_K, format: (v) => `${Math.round(v * 100)}%`, key: `${item.id}:fxK`,
+      onValue: (v) => { item.fxK = v; markDirty(); },
+    }));
+  }
+  if (field === 'fx' && state.clips.length > 1 && cur !== 'none') {
+    out.push(h('div', { class: 'btn-row look-actions' }, h('button', {
+      class: 'btn', onClick: () => { commit(); for (const x of state.clips) { x.fx = item.fx; if (item.fxK != null) x.fxK = item.fxK; } updateFx(); markDirty(); toast(`Added the effect to ${state.clips.length} clips`); },
+    }, 'Use this effect on all clips')));
+  }
+  return out;
+}
+
+// ---------- the Effects panel
+
+let fxCat = 'all';
+let fxPicked = null; // the effect being tried out
+let fxThumbView = null;
+let fxSample = null;
+let fxHover = null;
+
+function showLibrary(which) {
+  const fx = which === 'fx';
+  $('#tabMedia').setAttribute('aria-selected', String(!fx));
+  $('#tabFx').setAttribute('aria-selected', String(fx));
+  $('#mediaPane').hidden = fx;
+  $('#fxPane').hidden = !fx;
+  if (fx) { fxSample = null; renderFxGrid(); } else stopTrying();
+}
+$('#tabMedia').addEventListener('click', () => showLibrary('media'));
+$('#tabFx').addEventListener('click', () => showLibrary('fx'));
+
+// The picture the tiles show the effects on: the clip under the playhead (or a made-up scene).
+function fxSampleImage() {
+  if (fxSample) return fxSample;
+  const loc = state.clips.length ? locate(state.playhead) : null;
+  const m = loc ? mediaById(loc.clip.mediaId) : state.media.find((x) => x.thumb);
+  const img = new Image();
+  if (m && m.thumb) img.src = m.thumb;
+  else {
+    const c = document.createElement('canvas');
+    c.width = 192; c.height = 120;
+    const g = c.getContext('2d');
+    const sky = g.createLinearGradient(0, 0, 0, 120);
+    sky.addColorStop(0, '#4f46e5'); sky.addColorStop(0.55, '#f472b6'); sky.addColorStop(1, '#fb923c');
+    g.fillStyle = sky; g.fillRect(0, 0, 192, 120);
+    g.fillStyle = '#fde68a'; g.beginPath(); g.arc(120, 66, 20, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#1e1b4b'; g.beginPath(); g.moveTo(0, 120); g.lineTo(0, 84); g.lineTo(46, 60); g.lineTo(92, 88); g.lineTo(140, 70); g.lineTo(192, 92); g.lineTo(192, 120); g.fill();
+    g.fillStyle = '#0f0a24'; g.fillRect(30, 76, 10, 30); g.beginPath(); g.arc(35, 70, 7, 0, Math.PI * 2); g.fill();
+    img.src = c.toDataURL();
+  }
+  img.decode().then(() => renderFxGrid(true)).catch(() => {});
+  fxSample = img;
+  return img;
+}
+
+const CLASSIC_TILE = { grain: 'contrast(1.05)', vhs: 'saturate(1.35) contrast(1.08) blur(0.5px)', oldfilm: 'grayscale(1) contrast(1.1)', glitch: 'saturate(1.4) hue-rotate(-12deg)', shake: 'blur(0.6px)' };
+
+function drawFxTile(cv, e, t) {
+  const img = fxSampleImage();
+  if (!img.complete || !img.naturalWidth) return;
+  const g = cv.getContext('2d');
+  const W = cv.width;
+  const H = cv.height;
+  // Fill the tile (cropping the picture to its shape).
+  const s = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+  const dw = img.naturalWidth * s;
+  const dh = img.naturalHeight * s;
+  if (e.classic) {
+    g.filter = CLASSIC_TILE[e.id] || 'none';
+    const dx = e.id === 'shake' ? 3 * Math.sin(t * 37) : e.id === 'glitch' && t % 1.7 < 0.15 ? 6 * Math.sin(t * 90) : 0;
+    g.drawImage(img, (W - dw) / 2 + dx, (H - dh) / 2, dw, dh);
+    g.filter = 'none';
+    if (e.id === 'grain' || e.id === 'vhs' || e.id === 'oldfilm') {
+      const d = g.getImageData(0, 0, W, H);
+      for (let i = 0; i < d.data.length; i += 4) { const n = (Math.random() - 0.5) * (e.id === 'vhs' ? 30 : 60); d.data[i] += n; d.data[i + 1] += n; d.data[i + 2] += n; }
+      g.putImageData(d, 0, 0);
+    }
+    return;
+  }
+  if (!fxThumbView) fxThumbView = new FxView(h('div'));
+  const beats = null;
+  const env = e.beat && !t ? 1 : SnippyFx.envAt(beats, t);
+  if (!fxThumbView.draw(img, [{ id: e.id, k: e.id === fxPicked ? Number($('#fxBarK').value) : SnippyFx.DEFAULT_K, t: t || 0.9, dur: 3, env, bc: SnippyFx.countAt(beats, t || 0.9) }])) return;
+  g.drawImage(fxThumbView.canvas, (W - dw) / 2, (H - dh) / 2, dw, dh);
+}
+
+function renderFxGrid(redrawOnly) {
+  const grid = $('#fxGrid');
+  if ($('#fxPane').hidden) return;
+  const cats = $('#fxCats');
+  if (!redrawOnly) {
+    cats.textContent = '';
+    for (const [id, name] of [['all', 'All'], ...SnippyFx.CATS]) {
+      cats.append(h('button', { 'aria-pressed': String(fxCat === id), onClick: () => { fxCat = id; renderFxGrid(); } }, name.replace(' & ', ' & ')));
+    }
+    grid.textContent = '';
+    const loc = state.clips.length ? locate(state.playhead) : null;
+    for (const [cat, catName] of SnippyFx.CATS) {
+      if (fxCat !== 'all' && fxCat !== cat) continue;
+      if (fxCat === 'all') grid.append(h('div', { class: 'fx-head' }, catName));
+      for (const e of SnippyFx.ALL.filter((x) => x.cat === cat)) {
+        const cv = h('canvas', { width: '192', height: '120' });
+        const tile = h('button', {
+          class: `fx-tile${loc && loc.clip.fx === e.id ? ' on-clip' : ''}`, 'aria-pressed': String(fxPicked === e.id), title: e.desc, draggable: 'true', 'data-fx': e.id,
+          onClick: () => tryEffect(e.id),
+          onMouseenter: () => { fxHover = { e, cv, t0: performance.now() }; },
+          onMouseleave: () => { if (fxHover && fxHover.cv === cv) { fxHover = null; drawFxTile(cv, e, 0); } },
+          onDragstart: (ev) => { ev.dataTransfer.setData('application/x-snippy-fx', e.id); ev.dataTransfer.effectAllowed = 'copy'; },
+        }, cv, e.beat ? h('span', { class: 'fx-beat' }, '♪') : null, h('span', {}, e.name));
+        grid.append(tile);
+      }
+    }
+  }
+  for (const tile of grid.querySelectorAll('.fx-tile')) drawFxTile(tile.querySelector('canvas'), SnippyFx.byId[tile.dataset.fx], 0);
+}
+
+// The hovered tile plays its effect.
+(function animateFxTile() {
+  if (fxHover && !$('#fxPane').hidden) drawFxTile(fxHover.cv, fxHover.e, (performance.now() - fxHover.t0) / 1000 + 0.05);
+  requestAnimationFrame(animateFxTile);
+}());
+
+function tryEffect(id) {
+  const e = SnippyFx.byId[id];
+  fxPicked = id;
+  const loc = state.clips.length ? locate(state.playhead) : null;
+  const cur = loc && loc.clip.fx === id ? loc.clip.fxK : null;
+  $('#fxBarK').value = String(cur ?? SnippyFx.DEFAULT_K);
+  $('#fxBarKv').textContent = `${Math.round(Number($('#fxBarK').value) * 100)}%`;
+  $('#fxBarK').closest('label').hidden = Boolean(e.classic);
+  $('#fxBarName').textContent = e.name;
+  $('#fxBar').hidden = false;
+  $('#fxOnClip').disabled = !state.clips.length;
+  $('#fxOnTime').disabled = !state.clips.length;
+  fxTry = e.classic ? null : { id, k: Number($('#fxBarK').value), t0: performance.now() };
+  for (const t of $('#fxGrid').querySelectorAll('.fx-tile')) t.setAttribute('aria-pressed', String(t.dataset.fx === id));
+  if (!state.clips.length) toast('Add a video to try effects on it');
+}
+function stopTrying() {
+  fxPicked = null;
+  fxTry = null;
+  $('#fxBar').hidden = true;
+  for (const t of $('#fxGrid').querySelectorAll('.fx-tile')) t.setAttribute('aria-pressed', 'false');
+}
+$('#fxBarClose').addEventListener('click', stopTrying);
+$('#fxBarK').addEventListener('input', () => {
+  const k = Number($('#fxBarK').value);
+  $('#fxBarKv').textContent = `${Math.round(k * 100)}%`;
+  if (fxTry) fxTry.k = k;
+  const tile = $('#fxGrid').querySelector(`.fx-tile[data-fx="${fxPicked}"] canvas`);
+  if (tile) drawFxTile(tile, SnippyFx.byId[fxPicked], 0);
+});
+
+// The clip to put an effect on: the selected one, or the one under the playhead.
+function fxTargetClip() {
+  const s = state.selected;
+  if (s && s.kind === 'clip') { const c = state.clips.find((x) => x.id === s.id); if (c) return c; }
+  const loc = state.clips.length ? locate(state.playhead) : null;
+  return loc ? loc.clip : null;
+}
+
+function putEffectOnClip(c, id, k) {
+  commit();
+  c.fx = id;
+  if (SnippyFx.isNew(id)) c.fxK = k ?? SnippyFx.DEFAULT_K; else delete c.fxK;
+  updateFx(); markDirty(); renderTimeline();
+  select('clip', c.id);
+  renderFxGrid();
+  toast(`${SnippyFx.byId[id].name} is on the clip`);
+}
+
+function addEffectAt(id, t, k) {
+  if (!state.clips.length) { toast('Add a video first'); return; }
+  if (!SnippyFx.isNew(id)) {
+    // The original five belong to a clip.
+    const loc = locate(t);
+    if (loc) putEffectOnClip(loc.clip, id);
+    return;
+  }
+  const total = totalDuration();
+  const start = clamp(t, 0, Math.max(0, total - MIN_LEN));
+  const x = { id: newId('a'), start, dur: Math.max(MIN_LEN, Math.min(3, total - start)), look: 'none', effect: id, fxK: k ?? SnippyFx.DEFAULT_K };
+  commit();
+  state.adjust.push(x);
+  markDirty();
+  renderTimeline();
+  select('adjust', x.id);
+  toast(`${SnippyFx.byId[id].name} added for ${fmt(x.dur)}. Drag its edges to cover more or less.`);
+}
+
+$('#fxOnClip').addEventListener('click', () => {
+  const c = fxTargetClip();
+  if (!c || !fxPicked) return;
+  putEffectOnClip(c, fxPicked, Number($('#fxBarK').value));
+  stopTrying();
+});
+$('#fxOnTime').addEventListener('click', () => {
+  if (!fxPicked) return;
+  addEffectAt(fxPicked, state.playhead, Number($('#fxBarK').value));
+  stopTrying();
+});
+
+// Dragging an effect from the panel: onto a clip puts it on that clip, anywhere else on the
+// timeline adds it there.
+{
+  const tl = document.querySelector('.timeline');
+  const isFx = (e) => e.dataTransfer && [...e.dataTransfer.types].includes('application/x-snippy-fx');
+  let target = null;
+  const mark = (el) => { if (target === el) return; if (target) target.classList.remove('fx-target'); target = el; if (el) el.classList.add('fx-target'); };
+  tl.addEventListener('dragover', (e) => {
+    if (!isFx(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    tl.classList.add('fx-drop');
+    mark(e.target.closest('.clip'));
+  });
+  tl.addEventListener('dragleave', (e) => { if (!tl.contains(e.relatedTarget)) { tl.classList.remove('fx-drop'); mark(null); } });
+  tl.addEventListener('drop', (e) => {
+    if (!isFx(e)) return;
+    e.preventDefault();
+    tl.classList.remove('fx-drop');
+    mark(null);
+    const id = e.dataTransfer.getData('application/x-snippy-fx');
+    if (!SnippyFx.byId[id]) return;
+    const clipEl = e.target.closest('.clip');
+    const c = clipEl && state.clips.find((x) => x.id === clipEl.dataset.id);
+    if (c) putEffectOnClip(c, id);
+    else addEffectAt(id, Math.max(0, timeAtClientX(e.clientX)), SnippyFx.DEFAULT_K);
+    stopTrying();
   });
 }

@@ -11,6 +11,7 @@ const fun = require('./fun-audio-video');
 const smartCut = require('./smart-cut');
 const reframe = require('./reframe');
 const plans = require('./src/plans');
+const effects = require('./src/effects');
 const tts = require('./tts');
 const soundPack = require('./sound-pack');
 const tracker = require('./tracker');
@@ -683,7 +684,7 @@ ipcMain.handle('export:start', async (event, project, outPath) => {
     graph.push(
       `[${i}:v:0]trim=start=${a}:end=${b},${timing},` +
       `scale=${W}:${H}:force_original_aspect_ratio=decrease:force_divisible_by=2,${touchFilter(c.touch, i)}${cropFilter(c.crop)}${lutFilter(c.lut, tmp, `cl${i}`)}${colorFilters(c.color)}${curvesFilter(c.curve)}` +
-      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${fps},settb=AVTB,format=yuv420p${maskFilter(c.mask, i)}${transformFilter(c.motion, W, H, `tf${i}`)}${fxFilters(c.fx, W, H)}${vf}${c.blank ? ',drawbox=x=0:y=0:w=iw:h=ih:color=black:t=fill' : ''}[v${i}]`
+      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${fps},settb=AVTB,format=yuv420p${maskFilter(c.mask, i)}${transformFilter(c.motion, W, H, `tf${i}`)}${fxFilters(c.fx, W, H)}${effects.ffChain(c.fx, W, H, { k: c.fxK ?? undefined, dur: len, beats: c.fxBeats, tag: `ce${i}`, fps })}${vf}${c.blank ? ',drawbox=x=0:y=0:w=iw:h=ih:color=black:t=fill' : ''}[v${i}]`
     );
     const vol = (c.volume == null ? 1 : c.volume).toFixed(3);
     // Sound can't change speed smoothly in FFmpeg, so a speed curve's sound is cut into short
@@ -737,6 +738,17 @@ ipcMain.handle('export:start', async (event, project, outPath) => {
     vCur = `jv${i}`;
     aCur = `ja${i}`;
   }
+  // Effects on the timeline: the stretch they cover gets the effect, laid back over the video.
+  (project.effects || []).forEach((e, j) => {
+    const chain = effects.ffChain(e.id, W, H, { k: e.k, dur: e.dur, beats: e.beats, tag: `te${j}`, fps });
+    if (!chain) return;
+    const a = e.start.toFixed(3);
+    const b = (e.start + e.dur).toFixed(3);
+    graph.push(`[${vCur}]split[tea${j}][teb${j}]`,
+      `[teb${j}]trim=start=${a}:end=${b},setpts=PTS-STARTPTS${chain},setpts=PTS+${a}/TB[tec${j}]`,
+      `[tea${j}][tec${j}]overlay=eof_action=pass:enable='between(t,${a},${b})',format=yuv420p[teo${j}]`);
+    vCur = `teo${j}`;
+  });
   graph.push(`[${vCur}]null[cv]`, `[${aCur}]anull[ca]`);
 
   // Music and other audio-track items are mixed over the clips' own sound.

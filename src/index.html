@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data:; media-src 'self' file:; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Snippy</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg id="curveDefs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs></defs></svg>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="snippyGrad" gradientUnits="userSpaceOnUse" x1="280" y1="500" x2="1860" y2="1500">
+        <stop offset="0" stop-color="#8B5CF6"/><stop offset=".55" stop-color="#D946EF"/><stop offset="1" stop-color="#F472B6"/>
+      </linearGradient>
+      <symbol id="snippyMark" viewBox="180 360 1800 1380"><line x1="669" y1="822" x2="1010" y2="1060" stroke="url(#snippyGrad)" stroke-width="150" stroke-linecap="round"/><line x1="665" y1="1277" x2="1010" y2="1060" stroke="url(#snippyGrad)" stroke-width="150" stroke-linecap="round"/><circle cx="480" cy="690" r="195" fill="none" stroke="url(#snippyGrad)" stroke-width="110"/><circle cx="470" cy="1400" r="195" fill="none" stroke="url(#snippyGrad)" stroke-width="110"/><polygon points="878,1175 1850,1330 970,890" fill="url(#snippyGrad)"/><polygon points="1010,1248 1840,610 852,958" fill="url(#snippyGrad)"/><circle cx="1010" cy="1060" r="150" fill="url(#snippyGrad)"/><circle cx="1010" cy="1060" r="52" fill="#120E22"/><circle cx="1259" cy="917" r="74" fill="#FFFFFF"/><circle cx="1277" cy="911" r="36" fill="#120E22"/></symbol>
+    </defs>
+  </svg>
+    <header class="topbar">
+    <div class="topbar-left">
+      <button id="homeBtn" class="brand" title="Home: new project, recent projects"><svg class="brand-logo" aria-hidden="true"><use href="#snippyMark"/></svg>Snippy</button>
+      <div class="file-actions">
+        <button id="newBtn" class="btn ghost" title="New project (Ctrl+N)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M12 12v6M9 15h6"/></svg>New</button>
+        <button id="openBtn" class="btn ghost" title="Open project (Ctrl+O)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open</button>
+        <button id="saveBtn" class="btn ghost" title="Save project (Ctrl+S, or Ctrl+Shift+S to save a copy)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h11l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM7 3v5h8M7 21v-7h10v7"/></svg>Save</button>
+      </div>
+      <span id="projectName" class="project-name">Untitled project</span>
+    </div>
+    <div class="topbar-right">
+      <label class="field-inline">Canvas
+        <select id="aspect">
+          <option value="16:9">16:9 Landscape</option>
+          <option value="9:16">9:16 Portrait</option>
+          <option value="1:1">1:1 Square</option>
+        </select>
+      </label>
+      <button id="exportBtn" class="btn primary"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>Export</button>
+    </div>
+  </header>
+
+  <div id="updateBar" class="update-bar" role="status" hidden>
+    <span id="updateMsg"></span>
+    <button id="updateGo" class="btn primary" hidden>Restart to update</button>
+    <button id="updateLater" class="btn ghost">Later</button>
+  </div>
+
+  <main class="workspace">
+    <aside class="panel media-panel">
+      <div class="panel-head">
+        <h2>Media</h2>
+        <button id="importBtn" class="btn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Import</button>
+      </div>
+      <div class="media-tools">
+        <input id="mediaSearch" type="search" placeholder="Search media" aria-label="Search media">
+        <div class="media-tools-row">
+          <select id="mediaType" aria-label="Show">
+            <option value="all">All</option><option value="video">Videos</option><option value="image">Photos</option><option value="audio">Audio</option>
+          </select>
+          <select id="mediaSort" aria-label="Sort by">
+            <option value="added">Added</option><option value="name">Name</option><option value="length">Length</option><option value="type">Type</option>
+          </select>
+        </div>
+        <button id="mediaUnused" class="btn small link" title="Remove media that isn't used anywhere in the project. Your files aren't deleted.">Remove unused media</button>
+      </div>
+      <label class="check proxy-toggle" title="Big or hard-to-play videos get a light copy so the preview scrubs smoothly. Exports always use your original files."><input id="proxyToggle" type="checkbox" checked> Light preview copies for 4K</label>
+      <div id="mediaList" class="media-list"></div>
+    </aside>
+
+    <section class="preview-panel">
+      <div id="stageWrap" class="stage-wrap">
+        <div id="stage" class="stage">
+          <div id="gradeLayer" class="grade-layer">
+          <div id="layerA" class="layer">
+            <video id="preview" preload="auto"></video>
+            <img id="still" class="still" alt="" hidden>
+          </div>
+          <div id="layerB" class="layer cross-layer">
+            <video id="previewB" preload="auto" hidden></video>
+            <img id="stillB" class="still" alt="" hidden>
+          </div>
+          <canvas id="transPix" class="layer trans-pix" hidden></canvas>
+          <div id="transFlash" class="layer trans-flash"></div>
+          <div id="fxLayer" class="fx-layer" hidden><canvas id="fxGrain"></canvas><div id="fxScan"></div><div id="fxVignette"></div></div>
+          <div id="dip" class="dip"></div>
+          <div id="pipLayer" class="pip-layer"></div>
+          <div id="fxBoxLayer" class="fx-box-layer"></div>
+          </div>
+          <svg id="pixDefs" width="0" height="0" style="position:absolute" aria-hidden="true"></svg>
+          <canvas id="overlay" class="overlay"></canvas>
+          <div id="stickerLayer" class="pip-layer"></div>
+          <div id="safeZones" class="safe-zones" hidden aria-hidden="true"></div>
+          <div id="stageEmpty" class="stage-empty">Import a video to start editing</div>
+        </div>
+        <svg id="clipBox" class="clip-box" hidden>
+          <line id="guideX" class="guide" hidden></line>
+          <line id="guideY" class="guide" hidden></line>
+          <polygon id="cbFrame" class="cb-frame"></polygon>
+          <line id="cbStem" class="cb-stem"></line>
+          <circle class="cb-h" data-h="0" r="6"></circle><circle class="cb-h" data-h="1" r="6"></circle>
+          <circle class="cb-h" data-h="2" r="6"></circle><circle class="cb-h" data-h="3" r="6"></circle>
+          <circle id="cbRot" class="cb-rot" r="8"><title>Drag to turn (hold Shift for 15° steps)</title></circle>
+        </svg>
+        <div id="zoomHud" class="zoom-hud" hidden>
+          <button id="zhOut" class="zh-btn" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+          <span id="zhVal" class="zh-val">1.00×</span>
+          <button id="zhIn" class="zh-btn" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg></button>
+          <button id="zhReset" class="zh-btn zh-text" title="Back to the whole picture">Fit</button>
+          <span class="zh-hint">Drag to move · scroll or corners to resize</span>
+        </div>
+      </div>
+      <div class="transport">
+        <button id="backBtn" class="icon-btn" title="Back one frame (Left arrow)" aria-label="Back one frame">
+          <svg viewBox="0 0 16 16"><path d="M3 3h2v10H3zM13 3v10L6 8z"/></svg>
+        </button>
+        <button id="playBtn" class="icon-btn play" title="Play (Space)" aria-label="Play"></button>
+        <button id="fwdBtn" class="icon-btn" title="Forward one frame (Right arrow)" aria-label="Forward one frame">
+          <svg viewBox="0 0 16 16"><path d="M11 3h2v10h-2zM3 3v10l7-5z"/></svg>
+        </button>
+        <div class="timecode"><span id="tcNow">0:00.00</span><span class="tc-sep">/</span><span id="tcTotal">0:00.00</span></div>
+        <div id="kfBar" class="kf-bar" role="group" aria-label="Keyframes">
+          <button id="kfPrev" class="icon-btn kf-nav" title="Previous keyframe" aria-label="Previous keyframe"><svg viewBox="0 0 16 16"><path d="M10.5 3.5L6 8l4.5 4.5"/></svg></button>
+          <button id="kfToggle" class="icon-btn kf-toggle" aria-label="Add keyframe"><svg viewBox="0 0 16 16"><path d="M8 2.2L13.8 8 8 13.8 2.2 8z"/></svg></button>
+          <button id="kfNext" class="icon-btn kf-nav" title="Next keyframe" aria-label="Next keyframe"><svg viewBox="0 0 16 16"><path d="M5.5 3.5L10 8l-4.5 4.5"/></svg></button>
+        </div>
+        <button id="safeBtn" class="icon-btn safe-btn" aria-pressed="false" aria-label="Safe zones">
+          <svg viewBox="0 0 16 16"><rect x="4" y="1.5" width="8" height="13" rx="1.6"/><path d="M4 4h8M4 11.5h8M10 6.5v3.5"/></svg>
+        </button>
+        <div class="meter" title="Sound level" aria-hidden="true"><div id="meterFill"></div></div>
+      </div>
+    </section>
+
+    <aside id="inspector" class="panel inspector insp"></aside>
+  </main>
+
+  <section class="timeline">
+    <div class="tl-toolbar">
+      <button id="splitBtn" class="btn" title="Split at playhead (S)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg><span class="t">Split</span></button>
+      <button id="deleteBtn" class="btn" title="Delete selected (Delete)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v5M14 11v5"/></svg><span class="t">Delete</span></button>
+      <button id="addTextBtn" class="btn" title="Add text at playhead (T)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg><span class="t">Text</span></button>
+      <button id="stickerBtn" class="btn" title="Add a sticker at playhead (E)"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg><span class="t">Sticker</span></button>
+      <button id="templateBtn" class="btn" title="Ready-made titles and graphics"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><span class="t">Template</span></button>
+      <button id="sfxBtn" class="btn" title="Whooshes, pops, dings and more"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg><span class="t">Sounds</span></button>
+      <button id="musicBtn" class="btn" title="Background music from your own library, fitted to your video"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg><span class="t">Music</span></button>
+      <button id="voBtn" class="btn" title="Type a script and get a natural voice to read it"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="t">Voiceover</span></button>
+      <button id="smartBtn" class="btn smart" title="Auto captions, remove pauses and auto reframe" aria-haspopup="true"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg><span class="t">Smart tools</span></button>
+      <span class="divider" aria-hidden="true"></span>
+      <button id="undoBtn" class="btn icon-only" title="Undo (Ctrl+Z)" aria-label="Undo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+      <button id="redoBtn" class="btn icon-only" title="Redo (Ctrl+Y)" aria-label="Redo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+      <span class="spacer"></span>
+      <button id="snapBtn" class="btn toggle" aria-pressed="true" title="Snap to the playhead and other items. Hold Alt while dragging to place freely."><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h4v8a2 2 0 0 0 4 0V3h4v8a6 6 0 0 1-12 0zM6 7h4M14 7h4"/></svg><span class="t">Snap</span></button>
+      <label class="field-inline">Zoom <input id="zoom" type="range" min="10" max="300" value="60"></label>
+    </div>
+    <div class="tl-body">
+      <div class="tl-labels">
+        <div></div>
+        <button id="adjustLbl" class="lbl lbl-btn" title="Add an adjustment layer at the playhead: a colour look over everything underneath"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M12 3a9 9 0 0 1 0 18"/></svg>Adjust +</button>
+        <div class="lbl"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>Stickers</div>
+        <div class="lbl"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>Text</div>
+        <div class="lbl"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5zM3 13l9 5 9-5"/></svg>Overlay</div>
+        <div class="lbl"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>Video</div>
+        <div class="lbl"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>Audio</div>
+      </div>
+      <div id="tlScroll" class="tl-scroll">
+        <div id="tlContent" class="tl-content">
+          <div id="ruler" class="ruler"></div>
+          <div id="adjustTrack" class="track adjust-track"></div>
+          <div id="stickerTrack" class="track sticker-track"></div>
+          <div id="textTrack" class="track text-track"></div>
+          <div id="overlayTrack" class="track overlay-track"></div>
+          <div id="videoTrack" class="track video-track"></div>
+          <div id="audioTrack" class="track audio-track"></div>
+          <div id="dropMarker" class="drop-marker" hidden></div>
+          <div id="snapLine" class="snap-line" hidden></div>
+          <div id="playhead" class="playhead"><div class="playhead-head"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div id="sfxPicker" class="picker sfx-picker" role="dialog" aria-label="Sound effects" hidden>
+    <h3>Sound effects</h3>
+    <div id="packCard" class="pack-card" hidden></div>
+    <div id="sfxList"></div>
+    <p class="sfx-credit muted">Real recordings from <b>BigSoundBank.com</b> by Joseph Sardin, free to use in any video (CC0, no credit needed).</p>
+  </div>
+
+  <div id="musicPicker" class="picker music-picker" role="dialog" aria-label="Music" hidden>
+    <h3>Music</h3>
+    <div id="musicMoods" class="ramp-presets"></div>
+    <div id="musicList"></div>
+    <div class="btn-row music-actions">
+      <button id="musicAdd" class="btn small">Add music files…</button>
+      <button id="musicFolder" class="btn small link">Open my music folder</button>
+    </div>
+    <p class="sfx-credit muted">Only add music you're allowed to use. Good free sources: the YouTube Audio Library, Pixabay Music, and the Free Music Archive (look for CC0). Some tracks need you to credit the artist.</p>
+  </div>
+
+  <div id="templatePicker" class="picker template-picker" role="dialog" aria-label="Text templates" hidden>
+    <h3>Templates</h3>
+    <div id="templateGrid" class="tpl-grid"></div>
+  </div>
+
+  <div id="stickerPicker" class="picker" role="dialog" aria-label="Stickers" hidden>
+    <div id="stickerSets"></div>
+    <form id="stickerCustom" class="picker-custom">
+      <input id="stickerInput" maxlength="16" placeholder="Or paste any emoji" aria-label="Any emoji">
+      <button class="btn" type="submit">Use</button>
+    </form>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div id="exportModal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+      <h2 id="exportTitle">Exporting video</h2>
+      <p id="exportMsg" class="muted">Rendering your timeline to MP4.</p>
+      <div class="progress"><div id="exportBar" class="progress-bar"></div></div>
+      <div class="modal-actions">
+        <button id="exportCancel" class="btn">Cancel</button>
+        <button id="exportClose" class="btn" hidden>Close</button>
+        <button id="exportShow" class="btn primary" hidden>Show in folder</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="exportSettings" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="exsTitle">
+      <h2 id="exsTitle">Export video</h2>
+      <div class="modal-form">
+        <div class="field">Made for <div id="exPresets" class="presets-row" role="group" aria-label="Presets"></div></div>
+        <p id="exShapeTip" class="ex-tip" hidden></p>
+        <div class="field">Format <div id="exFormat" class="seg" role="group" aria-label="Format"></div></div>
+        <label class="field gif-only" hidden>GIF size
+          <select id="exGifSize">
+            <option value="320">Small, for messages</option>
+            <option value="480" selected>Medium</option>
+            <option value="720">Large, biggest file</option>
+          </select>
+        </label>
+        <label class="field mp4-only">Resolution
+          <select id="exRes">
+            <option value="720">720p, smaller and quicker</option>
+            <option value="1080" selected>1080p, full HD</option>
+            <option value="2160">4K, largest and slowest</option>
+          </select>
+        </label>
+        <label class="field mp4-only">Frame rate
+          <select id="exFps">
+            <option value="24">24 fps, film look</option>
+            <option value="30" selected>30 fps, standard</option>
+            <option value="60">60 fps, smoothest</option>
+          </select>
+        </label>
+        <label class="field mp4-only">Quality
+          <select id="exQuality">
+            <option value="26">Smaller file</option>
+            <option value="20" selected>Balanced</option>
+            <option value="16">Best quality</option>
+          </select>
+        </label>
+        <label class="field mp4-only">Speed
+          <select id="exHw">
+            <option value="auto">Use the graphics card if it can (faster)</option>
+            <option value="off">Normal encoder only (slower, works everywhere)</option>
+          </select>
+        </label>
+        <label class="check mp4-only"><input id="exLoud" type="checkbox"> Even out loudness (−14 LUFS, the level YouTube and TikTok play at)</label>
+        <div class="field mp4-only">Also export as <div id="exExtra" class="ex-extra"></div></div>
+        <p id="exSummary" class="muted"></p>
+      </div>
+      <div class="modal-actions">
+        <button id="exsCancel" class="btn">Cancel</button>
+        <button id="exsGo" class="btn primary">Choose where to save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="cutoutModal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cutTitle">
+      <h2 id="cutTitle">Removing background</h2>
+      <p class="muted">Snippy finds the person in each frame on your computer, so nothing is uploaded. The first time, it downloads a cut-out model of about 25 MB.</p>
+      <p id="cutMsg" class="muted"></p>
+      <div class="progress"><div id="cutBar" class="progress-bar"></div></div>
+      <div class="modal-actions"><button id="cutCancel" class="btn">Cancel</button></div>
+    </div>
+  </div>
+
+  <div id="smartMenu" class="picker smart-menu" role="menu" hidden>
+    <button id="acBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.5 20 17M8.6 16.5 20 7"/><path d="M17 3l.8 1.7L19.5 5.5l-1.7.8L17 8l-.8-1.7-1.7-.8 1.7-.8z"/></svg><span><b>AutoCut</b><small>Pick clips and get a few finished edits to choose from</small></span></button>
+    <button id="vtplBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9M13 13h5M13 17h3"/></svg><span><b>Make from a template</b><small>Drop in clips and music, get a finished edit cut to the beat</small></span></button>
+    <button id="autoBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3v4M3 5h4M6 17v4M4 19h4M13 3l2.5 6L21 11.5 15.5 14 13 20l-2.5-6L5 11.5 10.5 9z"/></svg><span><b>Auto edit</b><small>Find the best moments in long videos and make a highlight reel</small></span></button>
+    <button id="shortsBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="6" width="11" height="12" rx="2"/><rect x="15.5" y="3" width="6" height="11" rx="1.5"/><path d="M13.5 12h2M15.5 17.5l3 3 3-3"/></svg><span><b>Find Shorts</b><small>Turn a long video into short clips with captions, ready for TikTok and Reels</small></span></button>
+    <button id="thumbBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M6 10h7M6 14h4"/><circle cx="17" cy="12.5" r="2.5"/></svg><span><b>Thumbnail maker</b><small>Pick a great frame, add big text and save a thumbnail or cover</small></span></button>
+    <button id="captionsBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M7 15h4M13 15h4M7 11h2M11 11h6"/></svg><span><b>Auto captions</b><small>Write captions from the speech in your clips</small></span></button>
+    <button id="txBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 10h10M4 14h16M4 18h7"/><path d="m15 16 5 4M20 16l-5 4"/></svg><span><b>Edit by text</b><small>Cut the video by deleting words from the transcript</small></span></button>
+    <button id="translateBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h9M8.5 3v2M6 5c0 4 3 7 6 8M11 5c0 4-3 7-7 8"/><path d="m13 21 4-9 4 9M14.5 18h5"/></svg><span><b>Translate captions</b><small>Turn English captions into another language</small></span></button>
+    <button id="pausesBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h2M7 8v8M11 5v14M19 9v6M21 12h0"/><path d="m14 9 3 6M17 9l-3 6"/></svg><span><b>Remove pauses</b><small>Cut out the silences and dead air in one go</small></span></button>
+    <button id="reframeBtn" class="menu-row" role="menuitem"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3v14a1 1 0 0 0 1 1h13M3 7h14a1 1 0 0 1 1 1v13"/></svg><span><b>Auto reframe</b><small>Keep people in shot when changing the canvas shape</small></span></button>
+  </div>
+
+  <aside id="txPanel" class="tx-panel" hidden aria-labelledby="txTitle">
+    <div class="tx-head">
+      <h2 id="txTitle">Edit by text</h2>
+      <button id="txClose" class="icon-btn" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg></button>
+    </div>
+    <p class="hint">Click a word to jump to it. Drag across words (or Shift+click) to select, then press Delete to cut them from the video. Ctrl+Z undoes.</p>
+    <div class="tx-tools">
+      <button id="txCut" class="btn danger" disabled>Cut selected</button>
+      <button id="txFind" class="btn">Find filler words</button>
+      <button id="txCutFill" class="btn" hidden></button>
+    </div>
+    <div id="txBody" class="tx-body" tabindex="0"></div>
+  </aside>
+
+  <div id="pausesModal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pausesTitle">
+      <h2 id="pausesTitle">Remove pauses</h2>
+      <p class="hint">Snippy listens for the quiet gaps between what's said and cuts them out, leaving a little breathing room so words aren't clipped. Text, stickers and music move along to stay in step.</p>
+      <div class="modal-form">
+        <div class="field">Which clips <div id="pzWhich" class="seg" role="group" aria-label="Which clips"></div></div>
+        <div class="field">Cut pauses longer than <div id="pzLen" class="seg" role="group" aria-label="Pause length"></div></div>
+        <div class="field">How much counts as quiet <div id="pzSens" class="seg" role="group" aria-label="Sensitivity"></div></div>
+        <p id="pzResult" class="pz-result" hidden></p>
+      </div>
+      <div class="modal-actions">
+        <button id="pzCancel" class="btn">Cancel</button>
+        <button id="pzGo" class="btn primary">Find pauses</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="voModal" class="modal" hidden>
+    <div class="modal-card vo-card" role="dialog" aria-modal="true" aria-labelledby="voTitle">
+      <h2 id="voTitle">Voiceover</h2>
+      <div class="modal-form">
+        <textarea id="voText" rows="6" placeholder="Type or paste what the voice should say. Each sentence gets a natural pause after it." aria-label="Script"></textarea>
+        <div class="vo-row">
+          <label class="field">Voice <select id="voVoice"></select></label>
+          <div class="field">Speed <div id="voSpeed" class="seg" role="group" aria-label="Speed"></div></div>
+        </div>
+        <label class="check"><input id="voCaps" type="checkbox" checked> Add matching captions</label>
+        <div id="voWork" hidden>
+          <p id="voMsg" class="muted"></p>
+          <div class="progress"><div id="voBar" class="progress-bar"></div></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="voSample" class="btn">Hear a sample</button>
+        <span class="grow"></span>
+        <button id="voCancel" class="btn">Cancel</button>
+        <button id="voGo" class="btn primary">Add at playhead</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="checkModal" class="modal" hidden>
+    <div class="modal-card check-card" role="dialog" aria-modal="true" aria-labelledby="checkTitle">
+      <h2 id="checkTitle">Check-up</h2>
+      <p id="checkMsg" class="muted">Checking what works on this computer…</p>
+      <div id="checkList" class="check-list"></div>
+      <div class="modal-actions">
+        <button id="checkCopy" class="btn" hidden>Copy results</button>
+        <button id="checkClose" class="btn primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="trModal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="trTitle">
+      <h2 id="trTitle">Translate captions</h2>
+      <p class="hint">Snippy translates your English captions on your computer. Each language downloads a small model (about 80 MB) the first time. Machine translation can make mistakes, so read them through.</p>
+      <div class="modal-form">
+        <label class="field">Translate into <select id="trLang"></select></label>
+        <div class="field">What to do <div id="trMode" class="seg" role="group" aria-label="What to do"></div></div>
+        <div id="trWork" hidden><p id="trMsg" class="muted"></p><div class="progress"><div id="trBar" class="progress-bar"></div></div></div>
+      </div>
+      <div class="modal-actions">
+        <button id="trCancel" class="btn">Cancel</button>
+        <button id="trGo" class="btn primary">Translate</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="vtplModal" class="modal" hidden>
+    <div class="modal-card vtpl-card" role="dialog" aria-modal="true" aria-labelledby="vtplTitle">
+      <h2 id="vtplTitle">Make from a template</h2>
+      <div id="vtplStyles" class="vtpl-styles" role="group" aria-label="Template"></div>
+      <div class="modal-form">
+        <div class="field"><span id="vtplMediaLabel">Clips and photos, in order</span> <div id="vtplMedia" class="vtpl-media"></div></div>
+        <div class="vo-row">
+          <label class="field">Music <select id="vtplMusic"></select></label>
+          <label class="field">Length <select id="vtplLen"><option value="15">15 seconds</option><option value="30" selected>30 seconds</option><option value="60">1 minute</option><option value="0">As long as the music</option></select></label>
+        </div>
+        <label class="field">Title <input id="vtplText" type="text" class="text-input" maxlength="40" placeholder="Optional: shown at the start"></label>
+        <p id="vtplNote" class="hint"></p>
+      </div>
+      <div class="modal-actions">
+        <button id="vtplCancel" class="btn">Cancel</button>
+        <button id="vtplGo" class="btn primary">Make my video</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="setupModal" class="modal setup-modal" hidden>
+    <div class="modal-card setup-card" role="dialog" aria-modal="true" aria-labelledby="setupTitle">
+      <h2 id="setupTitle">Getting Snippy ready</h2>
+      <p class="hint">Snippy needs its video tools (FFmpeg), which it downloads once, the first time it opens. This keeps the installer small.</p>
+      <div class="progress"><div id="setupBar" class="progress-bar"></div></div>
+      <p id="setupMsg" class="setup-msg" aria-live="polite">Connecting…</p>
+      <div class="modal-actions">
+        <button id="setupQuit" class="btn" hidden>Close Snippy</button>
+        <button id="setupRetry" class="btn primary" hidden>Try again</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="thumbModal" class="modal" hidden>
+    <div class="modal-card th-card" role="dialog" aria-modal="true" aria-labelledby="thTitle">
+      <h2 id="thTitle">Thumbnail maker</h2>
+      <div class="th-layout">
+        <div class="th-side">
+          <div class="field">Made for <div id="thSize" class="seg" role="group" aria-label="Thumbnail size"></div></div>
+          <div class="field"><span>Frames (the sharpest, most colourful first)</span>
+            <div id="thFrames" class="th-frames"></div>
+            <button id="thHere" class="btn small">Use the frame at the playhead</button>
+          </div>
+        </div>
+        <div class="th-stage-wrap">
+          <canvas id="thCanvas" class="th-canvas" tabindex="0" aria-label="Thumbnail: drag text to move it, scroll to resize"></canvas>
+          <p class="hint th-hint">Drag text and stickers to move them; scroll over them to resize. Drag the picture to move it; scroll to zoom it.</p>
+        </div>
+        <div class="th-side th-controls">
+          <label class="field">Text <textarea id="thText" class="text-input" rows="2" maxlength="80" placeholder="Big words, 2 to 5 of them"></textarea></label>
+          <div class="field">Style <div id="thStyles" class="th-styles"></div></div>
+          <div class="field">Font <div id="thFonts" class="seg" role="group" aria-label="Font"></div></div>
+          <label class="field">Text size <input id="thTextSize" type="range" min="0.06" max="0.4" step="0.005"></label>
+          <div class="btn-row"><button id="thAddText" class="btn small">+ Text</button><button id="thDel" class="btn small danger">Remove</button></div>
+          <div class="field">Stickers <div id="thEmoji" class="th-emoji"></div></div>
+          <label class="field">Colour boost <input id="thPop" type="range" min="0" max="1" step="0.01"></label>
+          <label class="field">Darker edges <input id="thVig" type="range" min="0" max="1" step="0.01"></label>
+          <label class="field">Picture zoom <input id="thZoom" type="range" min="1" max="3" step="0.01"></label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="thCancel" class="btn">Close</button>
+        <button id="thCover" class="btn" title="Saved inside the exported MP4, so it shows in file browsers and players">Use as the video's cover</button>
+        <button id="thPng" class="btn">Save as PNG</button>
+        <button id="thJpg" class="btn primary" title="Under 2 MB, as YouTube needs">Save as JPG</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="shModal" class="modal" hidden>
+    <div class="modal-card sh-card" role="dialog" aria-modal="true" aria-labelledby="shTitle">
+      <h2 id="shTitle">Find Shorts</h2>
+      <p class="hint">Snippy listens to a long video (a podcast, stream, vlog or talk) and finds the moments that work on their own: a strong opening line, a finished thought, a lively voice. Each one becomes a portrait Short with captions, keeping the speaker in shot.</p>
+      <div id="shSetup" class="modal-form">
+        <label class="field">Video <select id="shSrc"></select></label>
+        <div class="vo-row">
+          <label class="field">Length <select id="shLen"><option value="15-30">15 to 30 seconds</option><option value="25-45" selected>25 to 45 seconds</option><option value="40-60">40 to 60 seconds</option><option value="60-90">1 to 1½ minutes</option></select></label>
+          <label class="field">How many <select id="shCount"><option>3</option><option selected>5</option><option>8</option><option>12</option></select></label>
+          <label class="field">Language <select id="shLang"></select></label>
+        </div>
+        <p id="shNote" class="hint"></p>
+      </div>
+      <div id="shRun" class="sh-run" hidden>
+        <p id="shMsg" class="hint"></p>
+        <div class="progress"><div id="shBar" class="progress-bar"></div></div>
+      </div>
+      <div id="shResults" class="sh-results" hidden>
+        <div class="sh-layout">
+          <div class="sh-player"><video id="shVideo" playsinline></video><div id="shCap" class="sh-cap"></div></div>
+          <div id="shList" class="sh-list" role="list"></div>
+        </div>
+        <div class="sh-opts">
+          <label class="field">Captions <select id="shLook"></select></label>
+          <label class="check"><input id="shHook" type="checkbox" checked> Opening line as a title for the first few seconds</label>
+          <label class="check"><input id="shTight" type="checkbox" checked> Cut the pauses</label>
+          <label class="check"><input id="shFollow" type="checkbox" checked> Keep the speaker in shot</label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="shCancel" class="btn">Cancel</button>
+        <button id="shBack" class="btn" hidden>Start again</button>
+        <button id="shEdit" class="btn" hidden>Edit the chosen one</button>
+        <button id="shGo" class="btn primary">Find the best moments</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="acModal" class="modal" hidden>
+    <div class="modal-card vtpl-card" role="dialog" aria-modal="true" aria-labelledby="acTitle">
+      <h2 id="acTitle">AutoCut</h2>
+      <p class="hint">Pick your clips and Snippy edits them for you: it finds the best moments (skipping dark or blurry bits), cuts to the music or tidies up what's said, and makes a few versions to choose from.</p>
+      <div class="modal-form">
+        <div class="field">What kind of video? <div id="acKind" class="seg" role="group" aria-label="Kind of video"></div></div>
+        <div class="field"><span>Clips and photos, in order (click to add or remove)</span> <div id="acMedia" class="vtpl-media"></div></div>
+        <div id="acMontage">
+          <div class="vo-row">
+            <label class="field">Music <select id="acMusic"></select></label>
+            <label class="field">Length <select id="acLen"><option value="0">Auto</option><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option></select></label>
+          </div>
+          <label class="field">Title <input id="acTitleText" type="text" class="text-input" maxlength="40" placeholder="Optional: shown at the start"></label>
+        </div>
+        <div id="acTalking" hidden>
+          <label class="check"><input id="acCaps" type="checkbox" checked> Add captions (uses the speech model on your computer)</label>
+          <label class="check"><input id="acBed" type="checkbox" checked> Quiet music underneath, if you have some</label>
+        </div>
+        <p id="acNote" class="hint"></p>
+      </div>
+      <div class="modal-actions">
+        <button id="acCancel" class="btn">Cancel</button>
+        <button id="acGo" class="btn primary">Make my video</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="acBar" class="ac-bar" role="toolbar" aria-label="AutoCut versions" hidden>
+    <span class="ac-label">AutoCut</span>
+    <div id="acVariants" class="ac-variants"></div>
+    <button id="acShuffle" class="btn" title="New picks of the best moments">↻ Shuffle</button>
+    <button id="acUndo" class="btn" title="Put back what you had before">Undo</button>
+    <button id="acKeep" class="btn primary">Keep this one</button>
+  </div>
+
+  <div id="jobModal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="jobTitle">
+      <h2 id="jobTitle"></h2>
+      <p id="jobMsg" class="muted"></p>
+      <div class="progress"><div id="jobBar" class="progress-bar"></div></div>
+      <div class="modal-actions"><button id="jobCancel" class="btn">Cancel</button></div>
+    </div>
+  </div>
+
+  <div id="suggestBar" class="update-bar suggest-bar" role="status" hidden>
+    <span id="suggestMsg"></span>
+    <button id="suggestGo" class="btn primary"></button>
+    <button id="suggestNo" class="btn ghost">No thanks</button>
+  </div>
+
+  <div id="home" class="home" hidden>
+    <div class="home-inner">
+      <div class="home-hero">
+        <svg class="home-logo" aria-hidden="true"><use href="#snippyMark"/></svg>
+        <div>
+          <h1>Snippy</h1>
+          <p class="muted">What are you making today?</p>
+        </div>
+        <span class="grow"></span>
+        <button id="homeOpen" class="btn"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open project…</button>
+        <button id="homeBack" class="btn" hidden>Back to my edit</button>
+      </div>
+      <div id="homeAc" class="home-ac" role="group" aria-label="AutoCut">
+        <button id="homeAcGo" class="home-ac-main">
+          <span class="home-ac-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.6 7.5 20 17M8.6 16.5 20 7"/><path d="M17 2.5l.8 1.7 1.7.8-1.7.8L17 7.5l-.8-1.7-1.7-.8 1.7-.8z"/></svg></span>
+          <span class="home-ac-text"><b>AutoCut</b><small>Pick your clips and get a finished edit, cut to the beat. Or drop clips here.</small></span>
+          <span class="home-ac-cta">Choose clips…</span>
+        </button>
+        <div class="home-ac-shape" role="group" aria-label="Shape for AutoCut">
+          <span>Shape</span>
+          <button class="ac-shape" data-aspect="auto" aria-pressed="true" title="Portrait, landscape or square, to suit your clips">Match my clips</button>
+          <button class="ac-shape" data-aspect="9:16" aria-pressed="false">9:16</button>
+          <button class="ac-shape" data-aspect="16:9" aria-pressed="false">16:9</button>
+          <button class="ac-shape" data-aspect="1:1" aria-pressed="false">1:1</button>
+        </div>
+      </div>
+      <h2 class="home-h">Or start from scratch</h2>
+      <div class="home-new">
+        <button class="new-card" data-aspect="9:16"><span class="shape tall"></span><b>Portrait 9:16</b><small>TikTok, Reels, Shorts</small></button>
+        <button class="new-card" data-aspect="16:9"><span class="shape wide"></span><b>Landscape 16:9</b><small>YouTube, TV, laptops</small></button>
+        <button class="new-card" data-aspect="1:1"><span class="shape square"></span><b>Square 1:1</b><small>Instagram and Facebook posts</small></button>
+      </div>
+      <h2 class="home-h">Recent projects</h2>
+      <div id="homeRecent" class="home-recent"></div>
+    </div>
+  </div>
+
+  <div id="tour" class="tour" hidden>
+    <div id="tourHole" class="tour-hole"></div>
+    <div id="tourCard" class="tour-card" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
+      <div id="tourCount" class="tour-count"></div>
+      <h2 id="tourTitle"></h2>
+      <p id="tourText"></p>
+      <div class="tour-actions">
+        <button id="tourSkip" class="btn link">Skip tour</button>
+        <span class="grow"></span>
+        <button id="tourBack" class="btn">Back</button>
+        <button id="tourNext" class="btn primary">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="relinkModal" class="modal" hidden>
+    <div class="modal-card relink-card" role="dialog" aria-modal="true" aria-labelledby="relinkTitle">
+      <h2 id="relinkTitle">Some files have moved</h2>
+      <p class="hint">This project uses files that aren't where they were. Point Snippy to them, or search a folder and it will find them by name.</p>
+      <ul id="relinkList" class="relink-list"></ul>
+      <div class="modal-actions">
+        <button id="relinkSearch" class="btn">Search a folder…</button>
+        <button id="relinkDone" class="btn primary">Open without them</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="captionsModal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="capTitle">
+      <h2 id="capTitle">Auto captions</h2>
+      <div id="capForm" class="modal-form">
+        <p class="muted">Snippy listens to the speech on your timeline and writes captions. It runs on your computer, so nothing is uploaded. The first time, it downloads a speech model of about 80 MB.</p>
+        <label class="field">Write the captions in
+          <select id="capTask">
+            <option value="transcribe">The language that's spoken</option>
+            <option value="translate">English (translated from any language)</option>
+          </select>
+        </label>
+        <label class="field">Spoken language
+          <select id="capLang">
+            <option value="">Detect automatically</option>
+            <option value="english">English</option>
+            <option value="spanish">Spanish</option>
+            <option value="french">French</option>
+            <option value="german">German</option>
+            <option value="italian">Italian</option>
+            <option value="portuguese">Portuguese</option>
+            <option value="dutch">Dutch</option>
+            <option value="polish">Polish</option>
+            <option value="turkish">Turkish</option>
+            <option value="arabic">Arabic</option>
+            <option value="hindi">Hindi</option>
+            <option value="urdu">Urdu</option>
+            <option value="chinese">Chinese</option>
+            <option value="japanese">Japanese</option>
+            <option value="korean">Korean</option>
+          </select>
+        </label>
+        <label class="field">Caption length
+          <select id="capStyle">
+            <option value="4">Short, a few words at a time</option>
+            <option value="12">Full sentences</option>
+          </select>
+        </label>
+        <label class="field">Look
+          <select id="capLook">
+            <option value="">Same as last time (or Highlight)</option>
+            <option value="boldbox">Bold box: a coloured box jumps to each word</option>
+            <option value="bounce">Bounce: each word hops as it's said</option>
+            <option value="karaoke">Karaoke: words fill with colour as they're said</option>
+            <option value="popin">Pop in: words appear as they're said</option>
+            <option value="neon">Neon: the spoken word glows</option>
+            <option value="big">Big word: the spoken word grows</option>
+            <option value="one">One word: one big word at a time</option>
+            <option value="clean">Clean: plain words on a dark box</option>
+          </select>
+        </label>
+        <label class="check"><input id="capKeys" type="checkbox"> Colour key words</label>
+        <label class="check"><input id="capEmoji" type="checkbox"> Add emoji</label>
+        <label class="check"><input id="capReplace" type="checkbox" checked> Replace captions made earlier</label>
+      </div>
+      <div id="capRun" hidden>
+        <p id="capMsg" class="muted"></p>
+        <div class="progress"><div id="capBar" class="progress-bar"></div></div>
+      </div>
+      <div class="modal-actions">
+        <button id="capCancel" class="btn">Cancel</button>
+        <button id="capStart" class="btn primary">Generate captions</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="keyframes.js"></script>
+  <script src="plans.js"></script>
+  <script src="captions.js"></script>
+  <script src="shorts.js"></script>
+  <script src="transitions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

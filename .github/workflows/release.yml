@@ -1,0 +1,66 @@
+# Builds the Windows installer on GitHub's own computers and publishes it as a release.
+# Run it from the Actions tab ("Release Snippy" > "Run workflow"), or by pushing a tag like v0.40.0.
+# The release is named after the version in package.json.
+name: Release Snippy
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check the tag matches the version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          want="v$(node -p "require('./package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "$want" ]; then
+            echo "::error::The tag is $GITHUB_REF_NAME but package.json says $want"
+            exit 1
+          fi
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      # The installer leaves out FFmpeg; Snippy downloads it from the components-v1 release on
+      # its first run. Upload it only when it's new or has changed, so downloads in progress
+      # never see a half-replaced set.
+      - name: Pack the video tools
+        run: node scripts/make-components.js components
+
+      - name: Publish the video tools (components-v1)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view components-v1 > /dev/null 2>&1; then
+            gh release create components-v1 components/* --title "Video tools for Snippy" \
+              --notes "FFmpeg and FFprobe for Windows. Snippy downloads these once, the first time it opens; you don't need to download them yourself." \
+              --latest=false
+          else
+            gh release download components-v1 -p components.json -O remote.json --clobber || echo '{"files":[]}' > remote.json
+            same=$(node -e "const a=require('./remote.json').files.map(f=>f.sha256).sort().join();const b=require('./components/components.json').files.map(f=>f.sha256).sort().join();console.log(a===b?'yes':'no')")
+            if [ "$same" = "no" ]; then
+              gh release upload components-v1 components/*.gz --clobber
+              gh release upload components-v1 components/components.json --clobber
+            else
+              echo "The video tools haven't changed."
+            fi
+          fi
+
+      - name: Build and publish the installer
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win nsis-web --publish always

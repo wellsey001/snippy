@@ -48,6 +48,10 @@ The installer is under 1 MB and downloads the rest of Snippy while it installs. 
 - Smooth slow motion: new in-between frames are made in the export instead of repeating frames
 - 18 transitions (crossfade, whip pan, zoom, glitch, slices and more). Click the + between two clips to pick one, with hover previews, a length slider and a quick play of the cut. Use one on every cut, or Mix it up for a different one at each cut
 - Snapping to the playhead, cuts, beats and markers. Markers (M) can also go on every 4th beat
+- Source viewer: double-click anything in the media panel to open it on its own, mark the part you want (I and O), then Insert (,) it at the playhead, pushing everything after along, or Overwrite (.) what's there
+- Pro trims: Alt+drag a clip edge to roll the cut, Alt+drag a clip to slip it, Alt+Shift+drag to slide it, Q and W to trim to the playhead and close the gap, and Alt+arrow keys to trim a frame at a time
+- Sound apart from the picture: detach a clip's sound, or pick a J cut (the next sound leads in) or an L cut (the sound runs on) from the + between two clips
+- Track controls: lock, hide, mute and solo each track, small, medium or large track heights (right-click a track's name), and Fit (\\) to see the whole edit
 - Select several things, group them so they move together (Ctrl+G), or combine clips into one
 - Copy and paste, including between projects, plus undo and redo
 - Canvas shapes: 16:9, 9:16 and 1:1
@@ -143,6 +147,8 @@ The installer is under 1 MB and downloads the rest of Snippy while it installs. 
 | Ctrl+G | Group | Ctrl+Shift+G | Ungroup |
 | Ctrl+C / X / V | Copy, cut, paste | Ctrl+Z / Ctrl+Y | Undo / redo |
 | Ctrl+S | Save | Ctrl+O / Ctrl+N | Open / new project |
+| Q / W | Trim to the playhead (start / end) | Alt+← / Alt+→ | Trim the end a frame |
+| , / . | Insert / overwrite from the source viewer | \\ | Fit the timeline |
 
 You can change these in the project panel.
 

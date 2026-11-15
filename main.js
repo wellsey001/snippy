@@ -683,7 +683,7 @@ ipcMain.handle('export:start', async (event, project, outPath) => {
     graph.push(
       `[${i}:v:0]trim=start=${a}:end=${b},${timing},` +
       `scale=${W}:${H}:force_original_aspect_ratio=decrease:force_divisible_by=2,${touchFilter(c.touch, i)}${cropFilter(c.crop)}${lutFilter(c.lut, tmp, `cl${i}`)}${colorFilters(c.color)}${curvesFilter(c.curve)}` +
-      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${fps},settb=AVTB,format=yuv420p${maskFilter(c.mask, i)}${transformFilter(c.motion, W, H, `tf${i}`)}${fxFilters(c.fx, W, H)}${vf}[v${i}]`
+      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1,fps=${fps},settb=AVTB,format=yuv420p${maskFilter(c.mask, i)}${transformFilter(c.motion, W, H, `tf${i}`)}${fxFilters(c.fx, W, H)}${vf}${c.blank ? ',drawbox=x=0:y=0:w=iw:h=ih:color=black:t=fill' : ''}[v${i}]`
     );
     const vol = (c.volume == null ? 1 : c.volume).toFixed(3);
     // Sound can't change speed smoothly in FFmpeg, so a speed curve's sound is cut into short

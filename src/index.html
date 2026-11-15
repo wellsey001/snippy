@@ -149,7 +149,8 @@
       <button id="redoBtn" class="btn icon-only" title="Redo (Ctrl+Y)" aria-label="Redo"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
       <span class="spacer"></span>
       <button id="snapBtn" class="btn toggle" aria-pressed="true" title="Snap to the playhead and other items. Hold Alt while dragging to place freely."><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h4v8a2 2 0 0 0 4 0V3h4v8a6 6 0 0 1-12 0zM6 7h4M14 7h4"/></svg><span class="t">Snap</span></button>
-      <label class="field-inline">Zoom <input id="zoom" type="range" min="10" max="300" value="60"></label>
+      <button id="fitBtn" class="btn toggle" title="Zoom the timeline to fit (\\)">Fit</button>
+      <label class="field-inline">Zoom <input id="zoom" type="range" min="2" max="300" value="60"></label>
     </div>
     <div class="tl-body">
       <div class="tl-labels">
@@ -420,6 +421,33 @@
         <button id="setupRetry" class="btn primary" hidden>Try again</button>
       </div>
     </div>
+  </div>
+
+  <div id="srcView" class="src-view" role="dialog" aria-label="Source viewer" tabindex="-1" hidden>
+    <div class="src-head">
+      <b>Source</b>
+      <select id="srcMedia" aria-label="Clip"></select>
+      <span class="grow"></span>
+      <button id="srcClose" class="icon-btn" aria-label="Close the source viewer">×</button>
+    </div>
+    <div class="src-screen"><video id="srcVideo" playsinline></video><img id="srcStill" alt="" hidden></div>
+    <div id="srcBar" class="src-bar" title="Click or drag to move through the clip"><div id="srcRange" class="src-range"></div><div id="srcHead" class="src-head-line"></div></div>
+    <div class="src-row">
+      <button id="srcPlay" class="btn small" aria-label="Play or pause">▶</button>
+      <span id="srcTime" class="src-time"></span>
+      <span class="grow"></span>
+      <button id="srcIn" class="btn small" title="Mark the start (I)">Mark in <kbd>I</kbd></button>
+      <button id="srcOut" class="btn small" title="Mark the end (O)">Mark out <kbd>O</kbd></button>
+      <button id="srcClear" class="btn small" title="Clear the marks (X)">Clear</button>
+    </div>
+    <div class="src-row">
+      <span id="srcMarked" class="src-marked"></span>
+      <span class="grow"></span>
+      <button id="srcOverlay" class="btn small" title="Layer the marked part on top of the main video, at the playhead">On top</button>
+      <button id="srcOverwrite" class="btn small" title="Replace what's at the playhead with the marked part (.)">Overwrite <kbd>.</kbd></button>
+      <button id="srcInsert" class="btn small primary" title="Put the marked part in at the playhead, moving everything after along (,)">Insert <kbd>,</kbd></button>
+    </div>
+    <p class="hint src-hint">Space plays, J K L shuttle, ← → step a frame. Insert and Overwrite go in at the timeline's playhead.</p>
   </div>
 
   <div id="ziModal" class="modal" hidden>

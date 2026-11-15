@@ -62,7 +62,8 @@ The installer is under 1 MB and downloads the rest of Snippy while it installs. 
 - Caption looks: Bold box, Bounce, Karaoke, Pop in, Neon, Big word, One word, Highlight and Clean, with key words in colour and auto emoji
 - Translate captions into Spanish, French, German, Italian, Dutch, Swedish, Russian, Ukrainian, Arabic, Hindi or Chinese
 - Edit by text: delete words in the transcript to cut them from the video, and find "um"s and repeated words
-- Text templates: title, lower third, subscribe, countdown, chapter, meme, breaking news, quote and typewriter
+- Text templates: title, lower third, subscribe, countdown, chapter, meme, breaking news, quote and typewriter, plus kinetic titles (Rising title, Glitch, Bounce in, Cinematic, Word by word, Neon sign, Impact). Hover over one to see it play
+- Text animations in three parts: coming in (14 styles, including drop, focus, wipe, spin, glitch, letter by letter and word by word), going out (10 styles) and while on screen (pulse, float, wiggle, shake, flicker, glow). Each tile plays when you hover over it
 - Nine fonts for any text or caption: Impact, Heavy, Bahnschrift, Trebuchet, Georgia, Comic, Script, Mono and Snippy's own
 - Emoji stickers, 16 animated "fun" stickers, animated emoji, and your own GIFs and see-through PNGs
 

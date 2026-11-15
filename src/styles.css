@@ -1230,3 +1230,17 @@ body:has(#acBar:not([hidden])) .toast { top: 62px; }
 .zi-card { width: 520px; max-width: calc(100vw - 32px); }
 .zi-card .seg button { padding: 7px 6px; font-size: 12.5px; }
 #brandModal { z-index: 80; }
+
+/* ---------- text animation tiles */
+.anim-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.anim-tile {
+  display: flex; flex-direction: column; gap: 4px; padding: 0; border: 0; background: none; color: var(--muted);
+  font: 600 11px/1.2 var(--font); cursor: pointer; text-align: center;
+}
+.anim-cv {
+  width: 100%; aspect-ratio: 16 / 9; height: auto; border-radius: 7px; background: linear-gradient(135deg, #2b2142, #1a1528);
+  outline: 2px solid transparent; outline-offset: 1px; transition: outline-color .15s;
+}
+.anim-tile:hover .anim-cv { outline-color: var(--line); }
+.anim-tile:hover, .anim-tile[aria-pressed="true"] { color: var(--text); }
+.anim-tile[aria-pressed="true"] .anim-cv { outline-color: var(--accent); }

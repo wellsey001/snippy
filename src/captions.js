@@ -21,6 +21,52 @@ function textFont(x, size) {
   return `${f[3]} ${size}px ${f[2]}`;
 }
 const ANIMS = { pop: 0.22, fade: 0.25, slide: 0.28 }; // intro length in seconds
+
+// ---------- text animations: in, out and while on screen
+// [id, name]. Block ones move the whole text; letter and word ones go one at a time.
+const TEXT_IN = [
+  ['none', 'None'], ['pop', 'Pop'], ['fade', 'Fade'], ['slide', 'Slide up'], ['drop', 'Drop'], ['zoom', 'Zoom'],
+  ['blur', 'Focus'], ['wipe', 'Wipe'], ['spin', 'Spin'], ['glitch', 'Glitch'], ['letters', 'Letters'],
+  ['lettersUp', 'Letters rise'], ['wordsUp', 'Word by word'], ['wordsPop', 'Words pop'], ['typewriter', 'Typing'],
+];
+const TEXT_OUT = [
+  ['none', 'None'], ['fade', 'Fade'], ['pop', 'Shrink'], ['slide', 'Slide down'], ['drop', 'Fall'], ['zoom', 'Zoom'],
+  ['blur', 'Blur'], ['wipe', 'Wipe'], ['glitch', 'Glitch'], ['letters', 'Letters'], ['wordsUp', 'Word by word'],
+];
+const TEXT_LOOP = [['none', 'None'], ['pulse', 'Pulse'], ['float', 'Float'], ['wiggle', 'Wiggle'], ['shake', 'Shake'], ['flicker', 'Flicker'], ['glow', 'Glow']];
+const IN_LEN = { pop: 0.22, fade: 0.25, slide: 0.28, drop: 0.5, zoom: 0.35, blur: 0.4, wipe: 0.45, spin: 0.45, glitch: 0.45 };
+const OUT_LEN = { fade: 0.3, pop: 0.25, slide: 0.3, drop: 0.45, zoom: 0.3, blur: 0.35, wipe: 0.4, glitch: 0.4 };
+const PER_ITEM = new Set(['letters', 'lettersUp', 'wordsUp', 'wordsPop']); // one letter or word at a time
+const easeInCubic = (p) => p * p * p;
+const easeOutBounce = (p) => {
+  const n = 7.5625; const d = 2.75;
+  if (p < 1 / d) return n * p * p;
+  if (p < 2 / d) return n * (p -= 1.5 / d) * p + 0.75;
+  if (p < 2.5 / d) return n * (p -= 2.25 / d) * p + 0.9375;
+  return n * (p -= 2.625 / d) * p + 0.984375;
+};
+// The same "random" numbers for the same moment, so the preview and the export glitch alike.
+const jitter = (seed) => { const v = Math.sin(seed * 12.9898 + 78.233) * 43758.5453; return v - Math.floor(v); };
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
+const outAnim = (x) => (x.out && x.out !== 'none' ? x.out : null);
+const loopAnim = (x) => (x.loop && x.loop !== 'none' ? x.loop : null);
+// How long the letters or words take to come in (or go out): a quick stagger, never most of the text's time.
+function staggerOf(x, n, kind) {
+  const step = kind.startsWith('words') ? Math.min(0.12, (x.dur * 0.4) / Math.max(1, n)) : Math.min(0.05, (x.dur * 0.35) / Math.max(1, n));
+  const each = kind.startsWith('words') ? 0.28 : 0.22;
+  return { step, each, total: step * Math.max(0, n - 1) + each };
+}
+// How long the in and out animations last for this text.
+function inLength(x, n) {
+  if (PER_ITEM.has(x.anim)) return staggerOf(x, n, x.anim).total;
+  return Math.min(x.dur / 2, IN_LEN[x.anim] || 0);
+}
+function outLength(x, n) {
+  const o = outAnim(x);
+  if (!o) return 0;
+  if (PER_ITEM.has(o)) return Math.min(x.dur / 2, staggerOf(x, n, o).total);
+  return Math.min(x.dur / 2, OUT_LEN[o] || 0.3);
+}
 // Caption looks: a whole style in one click. Each sets every word-style field, so switching
 // between them never leaves part of the old look behind.
 const LOOK_BASE = { wordFx: 'none', highlight: false, box: false, caps: false, anim: 'none', color: '#FFFFFF', hlColor: '#FFD84D' };
@@ -123,18 +169,101 @@ function drawCaption(ctx, W, H, x, u) {
   let alpha = 1;
   let scale = 1;
   let dy = 0;
-  if (x.anim === 'pop') {
+  let dx = 0;
+  let rot = 0;
+  let blurPx = 0;
+  let wipeIn = 1; // share of the text showing, from the left
+  let wipeOut = 0; // share hidden, from the left
+  let glitchAmt = 0;
+  let glowAmt = 0;
+  const nLetters = Math.max(1, captionWords(x).flat().join('').length);
+  const nWords = Math.max(1, captionWords(x).flat().length);
+  const countFor = (k) => (k.startsWith('words') ? nWords : nLetters);
+  // In
+  const A = x.anim;
+  const inP = (len) => clamp01(u / len);
+  if (A === 'pop') {
     scale = 0.55 + 0.45 * easeOutBack(Math.min(1, u / ANIMS.pop));
     alpha = Math.min(1, u / 0.08);
-  } else if (x.anim === 'fade') {
+  } else if (A === 'fade') {
     alpha = easeOutCubic(Math.min(1, u / ANIMS.fade));
-  } else if (x.anim === 'slide') {
+  } else if (A === 'slide') {
     const p = easeOutCubic(Math.min(1, u / ANIMS.slide));
     dy = (1 - p) * 0.06 * H;
     alpha = p;
+  } else if (A === 'drop') {
+    const p = inP(IN_LEN.drop);
+    dy = -(1 - easeOutBounce(p)) * 0.22 * H;
+    alpha = Math.min(1, p * 4);
+  } else if (A === 'zoom') {
+    const p = easeOutCubic(inP(IN_LEN.zoom));
+    scale = 1.9 - 0.9 * p;
+    alpha = p;
+  } else if (A === 'blur') {
+    const p = easeOutCubic(inP(IN_LEN.blur));
+    blurPx = (1 - p) * size * 0.35;
+    alpha = Math.min(1, p * 1.6);
+    scale = 1.06 - 0.06 * p;
+  } else if (A === 'wipe') {
+    wipeIn = easeOutCubic(inP(IN_LEN.wipe));
+  } else if (A === 'spin') {
+    const p = inP(IN_LEN.spin);
+    rot = (1 - easeOutBack(p)) * -90;
+    scale = 0.3 + 0.7 * easeOutBack(p);
+    alpha = Math.min(1, p * 3);
+  } else if (A === 'glitch') {
+    const p = inP(IN_LEN.glitch);
+    glitchAmt = p < 1 ? 1 - p * 0.6 : 0;
+    alpha = jitter(Math.floor(u * 30)) < 0.25 && p < 0.7 ? 0.25 : 1;
   }
+  // Out
+  const O = outAnim(x);
+  const outLen = outLength(x, O ? countFor(O) : 1);
+  const left = x.dur - u;
+  if (O && left < outLen && !PER_ITEM.has(O)) {
+    const q = clamp01(1 - left / outLen); // 0 → 1 as it leaves
+    if (O === 'fade') alpha *= 1 - easeInCubic(q);
+    else if (O === 'pop') { scale *= 1 - 0.7 * easeInCubic(q); alpha *= 1 - q * q; }
+    else if (O === 'slide') { dy += easeInCubic(q) * 0.06 * H; alpha *= 1 - q; }
+    else if (O === 'drop') { dy += easeInCubic(q) * 0.35 * H; rot += q * 12; alpha *= 1 - q * q; }
+    else if (O === 'zoom') { scale *= 1 + 0.9 * easeInCubic(q); alpha *= 1 - q; }
+    else if (O === 'blur') { blurPx += q * size * 0.35; alpha *= 1 - q * q; }
+    else if (O === 'wipe') wipeOut = easeInCubic(q);
+    else if (O === 'glitch') { glitchAmt = Math.max(glitchAmt, 0.4 + q * 0.6); alpha *= jitter(Math.floor(u * 30) + 7) < q * 0.8 ? 0.1 : 1 - q * q; }
+  }
+  // While on screen
+  const LP = loopAnim(x);
+  if (LP === 'pulse') scale *= 1 + 0.045 * Math.sin(u * Math.PI * 2 * 1.2);
+  else if (LP === 'float') dy += Math.sin(u * Math.PI * 2 * 0.5) * 0.012 * H;
+  else if (LP === 'wiggle') rot += Math.sin(u * Math.PI * 2 * 1.5) * 3.5;
+  else if (LP === 'shake') { const f = Math.floor(u * 24); dx += (jitter(f) - 0.5) * size * 0.12; dy += (jitter(f + 3) - 0.5) * size * 0.12; }
+  else if (LP === 'flicker') { const f = Math.floor(u * 15); if (jitter(f) < 0.12) alpha *= 0.35; }
+  else if (LP === 'glow') glowAmt = 0.55 + 0.45 * Math.sin(u * Math.PI * 2 * 0.8);
+  // One letter or word at a time: how far each one is in (or out).
+  const inStag = PER_ITEM.has(A) ? staggerOf(x, countFor(A), A) : null;
+  const outStag = O && PER_ITEM.has(O) ? staggerOf(x, countFor(O), O) : null;
+  const itemState = (li, wi) => {
+    let a = 1; let sy = 0; let sc = 1;
+    if (inStag) {
+      const i = A.startsWith('words') ? wi : li;
+      const p = clamp01((u - i * inStag.step) / inStag.each);
+      if (A === 'letters') { a = Math.min(1, p * 2); sc = 0.4 + 0.6 * easeOutBack(p); }
+      else if (A === 'lettersUp') { a = p; sy = (1 - easeOutCubic(p)) * size * 0.7; }
+      else if (A === 'wordsUp') { a = p; sy = (1 - easeOutCubic(p)) * size * 0.8; }
+      else if (A === 'wordsPop') { a = Math.min(1, p * 2.5); sc = 0.45 + 0.55 * easeOutBack(p); }
+    }
+    if (outStag) {
+      const i = O.startsWith('words') ? wi : li;
+      const start = x.dur - outStag.total + i * outStag.step;
+      const q = clamp01((u - start) / outStag.each);
+      if (O === 'letters') { a *= 1 - q; sc *= 1 - 0.6 * easeInCubic(q); }
+      else { a *= 1 - q; sy -= easeInCubic(q) * size * 0.8; }
+    }
+    return { a, sy, sc };
+  };
   const active = x.highlight || (x.wordFx && x.wordFx !== 'none') ? activeWordAt(x, u) : -1;
   const hl = x.hlColor || '#FFD84D';
+  const hlGlow = x.hlColor || '#E879F9';
   // Keyframed (or fixed) move, size, turn and opacity on top of the intro animation.
   const k = kfValue(x, 'text', u);
   const mx = L.cx + k.dx * W;
@@ -145,10 +274,19 @@ function drawCaption(ctx, W, H, x, u) {
 
   ctx.save();
   ctx.globalAlpha = alpha * Math.max(0, Math.min(1, k.opacity));
-  ctx.translate(mx, my + dy);
-  ctx.rotate((k.rotate * Math.PI) / 180);
+  ctx.translate(mx + dx, my + dy);
+  ctx.rotate(((k.rotate + rot) * Math.PI) / 180);
   ctx.scale(scale * k.scale, scale * k.scale);
   ctx.translate(-L.cx, -L.cy);
+  if (blurPx > 0.3) ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+  if (wipeIn < 1 || wipeOut > 0) {
+    // Wipe: only a band of the text shows, growing (in) or shrinking (out) from the left.
+    const bw = Math.max(...L.lines.map((ln) => ln.w)) + size;
+    const bx = L.cx - bw / 2;
+    ctx.beginPath();
+    ctx.rect(bx + bw * wipeOut, L.cy - H, bw * Math.max(0, wipeIn - wipeOut), H * 2);
+    ctx.clip();
+  }
   ctx.font = textFont(x, size);
   ctx.textBaseline = 'middle';
   ctx.textAlign = 'left';
@@ -169,16 +307,60 @@ function drawCaption(ctx, W, H, x, u) {
   const endOf = (i) => (x.words && x.words[i] && x.words[i].e != null && starts.length === x.words.length ? x.words[i].e : (starts[i + 1] ?? x.dur));
   const kwColor = x.kwColor || '#4ADE80';
   const allWords = L.lines.flatMap((ln) => ln.words.map((wd) => ({ ln, wd })));
+  let letterIndex = 0;
   const drawWord = (ln, wd, text, opts) => {
-    const { scale: ws = 1, dy: wdy = 0, colour, boxBehind = null, glow = null, partial = null, alphaW = 1, at = null } = opts;
+    const { scale: ws = 1, dy: wdy = 0, colour, boxBehind = null, glow: glowIn = null, partial = null, alphaW = 1, at = null } = opts;
+    const glow = glowIn || (glowAmt > 0 ? hlGlow : null);
     const wx = at ? at.x : wd.x;
     const wy = at ? at.y : ln.cy;
     const wc = wx + wd.w / 2;
+    const wordIdx = wd.idx;
+    const firstLetter = letterIndex;
+    letterIndex += wd.text.length;
+    // Letters one at a time: each drawn on its own, with its own fade, rise or pop.
+    if ((inStag && !A.startsWith('words')) || (outStag && !O.startsWith('words'))) {
+      if (!boxBehind && !partial) {
+        let lx = wx;
+        for (let ci = 0; ci < text.length; ci++) {
+          const ch = text[ci];
+          const cw = ctx.measureText(ch).width;
+          const st = itemState(firstLetter + ci, wordIdx);
+          if (st.a > 0.002) {
+            ctx.save();
+            ctx.globalAlpha *= alphaW * st.a;
+            const c = lx + cw / 2;
+            ctx.translate(c, wy + wdy + st.sy);
+            ctx.scale(ws * st.sc, ws * st.sc);
+            ctx.translate(-c, -wy);
+            if (!x.box) { ctx.lineWidth = size * 0.16; ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)'; ctx.strokeText(ch, lx, wy); }
+            if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = size * 0.6 * (glowIn ? 1 : glowAmt); }
+            ctx.fillStyle = colour;
+            ctx.fillText(ch, lx, wy);
+            ctx.restore();
+          }
+          lx += cw;
+        }
+        return;
+      }
+    }
+    const wst = (inStag && A.startsWith('words')) || (outStag && O.startsWith('words')) ? itemState(firstLetter, wordIdx) : { a: 1, sy: 0, sc: 1 };
+    if (wst.a <= 0.002) return;
     ctx.save();
-    ctx.globalAlpha *= alphaW;
-    ctx.translate(wc, wy + wdy);
-    ctx.scale(ws, ws);
+    ctx.globalAlpha *= alphaW * wst.a;
+    ctx.translate(wc, wy + wdy + wst.sy);
+    ctx.scale(ws * wst.sc, ws * wst.sc);
     ctx.translate(-wc, -wy);
+    if (glitchAmt > 0) {
+      // Glitch: offset red and cyan copies that jump about a few times a second.
+      const f = Math.floor(u * 30) + wordIdx * 3;
+      const off = size * 0.09 * glitchAmt * (0.4 + jitter(f));
+      const shift = (jitter(f + 1) - 0.5) * size * 0.25 * glitchAmt;
+      ctx.save();
+      ctx.globalAlpha *= 0.85;
+      ctx.fillStyle = '#FF2D55'; ctx.fillText(text, wx + off + shift, wy);
+      ctx.fillStyle = '#22E5FF'; ctx.fillText(text, wx - off + shift, wy);
+      ctx.restore();
+    }
     if (boxBehind) {
       const pad = size * 0.1;
       ctx.fillStyle = boxBehind;
@@ -190,7 +372,7 @@ function drawCaption(ctx, W, H, x, u) {
       ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
       ctx.strokeText(text, wx, wy);
     }
-    if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = size * 0.6; }
+    if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = size * 0.6 * (glowIn ? 1 : glowAmt); }
     ctx.fillStyle = boxBehind ? '#111111' : colour;
     ctx.fillText(text, wx, wy);
     if (glow) { ctx.fillText(text, wx, wy); ctx.shadowBlur = 0; }
@@ -586,8 +768,15 @@ function captionChangePoints(texts, total, fps, stickers = []) {
     pts.add(snap(s));
     pts.add(snap(s + x.dur));
     if (hasMotion(x)) for (let k = 1; k <= Math.ceil(x.dur * fps); k++) pts.add(snap(s + k / fps));
-    const a = ANIMS[x.anim];
-    if (a) for (let k = 1; k <= Math.ceil(a * fps); k++) pts.add(snap(s + k / fps));
+    // In, out and looping animations change the picture every frame while they run.
+    const nL = Math.max(1, captionWords(x).flat().join('').length);
+    const nW = Math.max(1, captionWords(x).flat().length);
+    const countFor = (kd) => (kd.startsWith('words') ? nW : nL);
+    if (loopAnim(x)) for (let k = 1; k <= Math.ceil(x.dur * fps); k++) pts.add(snap(s + k / fps));
+    const a = x.anim && x.anim !== 'typewriter' && x.anim !== 'none' ? inLength(x, countFor(x.anim)) : 0;
+    if (a) for (let k = 1; k <= Math.ceil(a * fps) + 1; k++) pts.add(snap(s + k / fps));
+    const ol = outAnim(x) ? outLength(x, countFor(outAnim(x))) : 0;
+    if (ol) for (let k = Math.ceil(ol * fps) + 1; k >= 0; k--) pts.add(snap(s + x.dur - k / fps));
     const wfx = x.wordFx && x.wordFx !== 'none' ? x.wordFx : null;
     if (x.highlight || wfx || x.emoji) for (const w of wordStarts(x)) pts.add(snap(s + w));
     // Word animations change for a few frames after each word starts; karaoke changes all the time.

@@ -2361,6 +2361,23 @@ const TEMPLATES = [
     { text: '“Write your quote here”', size: 8, anim: 'fade', dur: 4, offsetY: -0.04 },
     { text: '— Someone wise', size: 4.5, color: '#F2B84B', anim: 'fade', at: 0.6, dur: 3.4, offsetY: 0.09 }] },
   { id: 'typing', name: 'Typewriter', texts: [{ text: 'Type your message here…', size: 8, anim: 'typewriter', dur: 4 }] },
+  // Kinetic titles: they come in, move while they're on, and go out again.
+  { id: 'kinetic', name: 'Rising title', texts: [
+    { text: 'BIG IDEA', size: 15, caps: true, anim: 'lettersUp', out: 'letters', dur: 3.2, offsetY: -0.04 },
+    { text: 'one letter at a time', size: 5, color: '#FFD84D', anim: 'wordsUp', out: 'fade', at: 0.5, dur: 2.7, offsetY: 0.09 }] },
+  { id: 'glitchTitle', name: 'Glitch', texts: [
+    { text: 'SYSTEM ONLINE', size: 12, caps: true, anim: 'glitch', loop: 'flicker', out: 'glitch', dur: 3 }] },
+  { id: 'bounceTitle', name: 'Bounce in', texts: [
+    { text: 'LET\u2019S GO!', size: 16, caps: true, color: '#FFD84D', anim: 'drop', loop: 'pulse', out: 'drop', dur: 3 }] },
+  { id: 'cinematic', name: 'Cinematic', texts: [
+    { text: 'The Journey', size: 12, font: 'georgia', anim: 'blur', loop: 'float', out: 'blur', dur: 4, offsetY: -0.03 },
+    { text: 'A FILM BY YOU', size: 3.6, caps: true, color: '#D9D2C5', anim: 'fade', out: 'fade', at: 0.8, dur: 3.2, offsetY: 0.08 }] },
+  { id: 'wordByWord', name: 'Word by word', texts: [
+    { text: 'Here\u2019s what nobody tells you', size: 9, anim: 'wordsUp', out: 'wordsUp', dur: 3.5 }] },
+  { id: 'neon', name: 'Neon sign', texts: [
+    { text: 'OPEN LATE', size: 13, caps: true, font: 'bahn', hlColor: '#E879F9', anim: 'fade', loop: 'glow', out: 'fade', dur: 4 }] },
+  { id: 'impact', name: 'Impact', texts: [
+    { text: 'WAIT FOR IT', size: 14, caps: true, font: 'impact', anim: 'zoom', loop: 'shake', out: 'zoom', dur: 2.5 }] },
 ];
 
 // Items for a template starting at time t0.
@@ -2391,14 +2408,26 @@ function buildTemplatePicker() {
     const { texts, stickers } = templateItems(tpl, 0);
     // Shown as it looks once everything has come in.
     const at = Math.max(...texts.map((x) => x.start)) + 0.9;
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, cv.width, cv.height);
     const layer = document.createElement('canvas');
     layer.width = cv.width;
     layer.height = cv.height;
-    drawCaptions(layer.getContext('2d'), cv.width, cv.height, texts, at, stickers);
-    ctx.drawImage(layer, 0, 0);
-    grid.append(h('button', { class: 'tpl', title: tpl.name, onClick: () => insertTemplate(tpl) }, cv, h('span', {}, tpl.name)));
+    const lctx = layer.getContext('2d');
+    const paint = (t) => {
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, cv.width, cv.height);
+      lctx.clearRect(0, 0, layer.width, layer.height);
+      const keep = captionHits.length;
+      drawCaptions(lctx, cv.width, cv.height, texts, t, stickers);
+      captionHits.length = keep;
+      ctx.drawImage(layer, 0, 0);
+    };
+    paint(at);
+    // Hovering plays the template from the start, so the animations show.
+    const end = Math.max(...texts.map((x) => x.start + x.dur), ...stickers.map((x) => x.start + x.dur)) + 0.4;
+    let raf = 0;
+    const playIt = () => { cancelAnimationFrame(raf); const t0 = performance.now(); const f = (now) => { paint(((now - t0) / 1000) % end); raf = requestAnimationFrame(f); }; raf = requestAnimationFrame(f); };
+    const stopIt = () => { cancelAnimationFrame(raf); paint(at); };
+    grid.append(h('button', { class: 'tpl', title: tpl.name, onClick: () => { stopIt(); insertTemplate(tpl); }, onMouseenter: playIt, onMouseleave: stopIt }, cv, h('span', {}, tpl.name)));
   }
 }
 
@@ -2432,7 +2461,7 @@ function insertTemplate(tpl) {
   if (ta) { ta.focus(); ta.select(); }
 }
 
-const TEXT_STYLE = ['font', 'size', 'position', 'color', 'anim', 'highlight', 'hlColor', 'box', 'caps', 'align', 'boxColor', 'offsetY', 'wordFx', 'keyColor', 'kwColor', 'emoji'];
+const TEXT_STYLE = ['font', 'size', 'position', 'color', 'anim', 'out', 'loop', 'highlight', 'hlColor', 'box', 'caps', 'align', 'boxColor', 'offsetY', 'wordFx', 'keyColor', 'kwColor', 'emoji'];
 const copyStyle = (src) => Object.fromEntries(TEXT_STYLE.map((k) => [k, src[k]]));
 
 const WORD_FX = [['none', 'None'], ['hl', 'Highlight'], ['pop', 'Pop in'], ['bounce', 'Bounce'], ['karaoke', 'Karaoke'], ['box', 'Box'], ['glow', 'Glow'], ['big', 'Big word'], ['one', 'One word']];
@@ -3092,7 +3121,7 @@ const INSPECTOR_TABS = {
   text: [
     ['text', 'Text', ['Text', 'Size', 'Position', 'Align', 'Nudge up / down', 'Timing']],
     ['style', 'Style', ['Caption look', 'Font', 'Colour', 'Word animation', 'Key words', 'Emoji', 'Highlight colour', 'Background', 'Letters']],
-    ['anim', 'Animation', ['Animation']],
+    ['anim', 'Animation', ['Animation', 'Coming in', 'Going out', 'While on screen']],
     ['motion', 'Motion', ['Keyframes', 'Motion tracking', 'Move left / right', 'Move up / down', 'Zoom', 'Turn', 'Opacity']],
   ],
   sticker: [
@@ -3335,7 +3364,7 @@ function renderTextInspector(ins, x) {
         class: 'swatch', style: `background:${c}`, 'aria-label': `Colour ${c}`,
         'aria-pressed': String(x.color === c), onClick: () => discrete(() => { x.color = c; }),
       })))),
-    textSeg('Animation', [['none', 'None'], ['pop', 'Pop'], ['fade', 'Fade'], ['slide', 'Slide'], ['typewriter', 'Typing']], x.anim || 'none', (v) => { x.anim = v; }),
+    ...textAnimSections(x, discrete),
     textSeg('Align', [['left', 'Left'], [undefined, 'Centre'], ['right', 'Right']], x.align, (v) => { x.align = v; }),
     sliderSection('Nudge up / down', {
       min: -0.4, max: 0.4, step: 0.005, value: x.offsetY || 0, format: (v) => `${Math.round(v * 100)}`, key: `${x.id}:offy`,
@@ -10494,3 +10523,64 @@ $('#zoomInsBtn').addEventListener('click', openZoomIns);
 $('#ziCancel').addEventListener('click', () => { $('#ziModal').hidden = true; });
 $('#ziRemove').addEventListener('click', () => { $('#ziModal').hidden = true; commit(); removeAutoZooms(); });
 $('#ziGo').addEventListener('click', () => { $('#ziModal').hidden = true; addAutoZooms(ziOpts); });
+
+
+// ---------- text animation picker: tiles drawn by the real caption code, playing on hover
+
+function textAnimTile(x, which, id, name, onPick) {
+  const W = 120; const H = 68; const dpr = window.devicePixelRatio || 1;
+  const cv = h('canvas', { class: 'anim-cv', width: String(W * dpr), height: String(H * dpr) });
+  const ctx = cv.getContext('2d');
+  const sample = {
+    id: `tile-${which}-${id}`, text: x.caps || (x.text || '').length < 3 ? 'HELLO' : 'Hello', size: 26, position: 'center', color: x.color || '#FFFFFF',
+    font: x.font, box: Boolean(x.box), boxColor: x.boxColor, caps: x.caps, hlColor: x.hlColor, dur: 2.4,
+    anim: which === 'in' ? id : 'none', out: which === 'out' ? id : 'none', loop: which === 'loop' ? id : 'none',
+  };
+  // A still from the middle of the animation, so each tile looks different before it plays.
+  const n = Math.max(1, sample.text.length);
+  const still = () => {
+    if (which === 'in') return id === 'none' ? 1 : (id === 'typewriter' ? 0.12 : Math.max(0.05, inLength(sample, n) * 0.5));
+    if (which === 'out') return id === 'none' ? 1 : sample.dur - Math.max(0.05, outLength(sample, n) * 0.5);
+    return 0.35;
+  };
+  const draw = (u) => {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const keep = captionHits.length;
+    drawCaption(ctx, W, H, sample, Math.max(0, Math.min(sample.dur - 0.001, u)));
+    captionHits.length = keep;
+  };
+  draw(still());
+  let raf = 0;
+  const play = () => {
+    cancelAnimationFrame(raf);
+    const t0 = performance.now();
+    const loopLen = which === 'loop' ? 3 : 1.6;
+    const frame = (now) => {
+      const p = ((now - t0) / 1000) % loopLen;
+      draw(which === 'in' ? p : which === 'out' ? sample.dur - 1.3 + p : p);
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+  };
+  const stop = () => { cancelAnimationFrame(raf); draw(still()); };
+  const current = which === 'in' ? (x.anim || 'none') : which === 'out' ? (x.out || 'none') : (x.loop || 'none');
+  return h('button', {
+    class: 'anim-tile', 'aria-pressed': String(current === id), title: name,
+    onMouseenter: play, onMouseleave: stop, onFocus: play, onBlur: stop, onClick: onPick,
+  }, cv, h('span', {}, name));
+}
+
+function textAnimSections(x, discrete) {
+  const grid = (which, list, set) => h('div', { class: 'anim-grid', role: 'group' },
+    ...list.map(([id, name]) => textAnimTile(x, which, id, name, () => discrete(() => set(id)))));
+  return [
+    section('Coming in', grid('in', TEXT_IN, (v) => { x.anim = v; })),
+    section('Going out', grid('out', TEXT_OUT, (v) => { if (v === 'none') delete x.out; else x.out = v; })),
+    section('While on screen', grid('loop', TEXT_LOOP, (v) => { if (v === 'none') delete x.loop; else x.loop = v; })),
+    h('div', { class: 'btn-row' }, h('button', {
+      class: 'btn', onClick: () => { seek(x.start); play(); clearTimeout(textAnimSections.t); textAnimSections.t = setTimeout(() => { if (state.playing) pause(); }, (x.dur + 0.3) * 1000); },
+    }, '▶ Play this text')),
+    h('p', { class: 'hint' }, 'Hover over a tile to see it move. Letter and word animations go one at a time; the export looks exactly like the preview.'),
+  ];
+}

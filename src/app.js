@@ -714,6 +714,30 @@ function audioGain(item, local) {
   return clamp(g, 0, 1);
 }
 
+let musicHold = false;
+function musicStalled() {
+  const t = state.playhead;
+  for (const a of state.audio) {
+    const el = audioEls.get(a.id);
+    const local = t - a.start;
+    if (el && !el.paused && !el.seeking && el.readyState < 3 && local > 0.1 && local < a.out - a.in - 0.1 && audioGain(a, local) > 0) return true;
+  }
+  return false;
+}
+
+// The time the playing music says it is (null when no music is playing steadily right now).
+function musicClock(t = state.playhead) {
+  for (const a of state.audio) {
+    const el = audioEls.get(a.id);
+    const local = t - a.start;
+    if (!el || el.paused || el.seeking || el.readyState < 3 || local < 0 || local >= a.out - a.in - 0.05) continue;
+    if (a.voice || !(audioGain(a, local) > 0)) continue;
+    const mt = a.start + (el.currentTime - a.in);
+    if (Math.abs(mt - t) < 0.5) return mt;
+  }
+  return null;
+}
+
 function syncAudio(forceSeek) {
   const t = state.playhead;
   const live = new Set();
@@ -1300,7 +1324,13 @@ function setPlayIcon() {
 }
 
 function tick() {
-  if (state.playing && currentIndex >= 0) {
+  // The music is catching up on loading: the picture waits for it rather than running on ahead
+  // (which would mean jumping the music forward, or the picture back, when it's ready).
+  const stalled = state.playing && musicStalled();
+  if (stalled && !video.paused) { video.pause(); musicHold = true; }
+  else if (!stalled && musicHold) { musicHold = false; if (state.playing && currentIndex >= 0 && !video.hidden) video.play().catch(() => {}); }
+  if (state.playing && currentIndex >= 0 && !stalled) {
+    const before = state.playhead;
     const c = state.clips[currentIndex];
     if (!c) {
       pause();
@@ -1323,10 +1353,24 @@ function tick() {
         // Keep a changed voice in step with the picture.
         if (video.muted && !voiceEl.paused && Math.abs(voiceEl.currentTime - vt) > 0.15) voiceEl.currentTime = vt;
       }
+      // With music playing, the music keeps time and the picture follows it. The picture briefly
+      // waits at each cut while the next clip loads; if it kept time instead, the music would be
+      // pulled back to match it, which you'd hear as a little skip.
+      const mt = musicClock(before);
+      if (mt != null && mt >= starts[currentIndex] - 0.05) {
+        state.playhead = mt;
+        const u = mt - starts[currentIndex];
+        ended = u >= clipLen(c) - 0.02;
+        if (!ended && !isImage(mediaById(c.mediaId)) && !video.seeking && video.readyState >= 2 && !c.mode) {
+          const d = derivedFor(c, false);
+          const want = d ? srcOff(c, u) : c.in + srcOff(c, u);
+          if (Math.abs(video.currentTime - want) > 0.2) setVideoTime(want);
+        }
+      }
       if (ended) {
         if (currentIndex < state.clips.length - 1) {
           // With a crossfade the next clip is already part-way in, so carry on from here.
-          state.playhead = starts[currentIndex] + clipLen(c);
+          state.playhead = Math.max(state.playhead, starts[currentIndex] + clipLen(c));
           if (overlapOf(currentIndex + 1) > 0) handoffUntil = performance.now() + 400;
           loadClipAt(state.playhead + 0.0001, true);
         } else {
@@ -8688,6 +8732,14 @@ async function acBuildMontage(o) {
       }
     }
     await buildFromTemplate(tpl, { picks, musicId, maxLen: 0, title: o.title, shots, musicFrom, muteClips, beats: beatInfo, outro: false, endFade: 0.8 });
+    // A song you picked plays clean: the clips' own sound is off (each can be turned back up), so
+    // nothing jumps around under the music at the cuts, and the music stays at one level instead
+    // of dipping and swelling with the noise in the footage.
+    if (musicId && !muteClips) {
+      for (const c of state.clips) c.volume = 0;
+      const mu = state.audio.find((a) => a.mediaId === musicId);
+      if (mu) { delete mu.duck; delete mu.duckTo; mu.volume = 1; }
+    }
     acSaidSound(shots, musicId);
     acBeatPolish(st, beatInfo, musicId);
     variants.push({ name: st.name, snap: snapshot() });

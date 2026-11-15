@@ -112,6 +112,34 @@ function trackBeats(env, period) {
   return { beats, strong, power };
 }
 
+// Steadies the beats. Busy music (vocals, fills, guitar between the drums) pulls single beats a
+// few hundredths of a second early or late, and cuts placed on them feel off. Each beat is moved
+// onto a straight line through the beats around it (eight either side, the ones that landed on
+// a real hit, ignoring any far off the line), so the grid stays even but still follows a song
+// that speeds up or slows down.
+function steady(times, strong, period) {
+  const W = 8;
+  return times.map((t, i) => {
+    let pts = [];
+    for (let j = Math.max(0, i - W); j <= Math.min(times.length - 1, i + W); j++) if (strong[j]) pts.push([j, times[j]]);
+    for (let pass = 0; pass < 2; pass++) {
+      if (pts.length < 5) return Number(t.toFixed(4));
+      const n = pts.length;
+      const mx = pts.reduce((a, p) => a + p[0], 0) / n;
+      const my = pts.reduce((a, p) => a + p[1], 0) / n;
+      let sxy = 0; let sxx = 0;
+      for (const [x, y] of pts) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; }
+      const slope = sxx ? sxy / sxx : period;
+      const at = (x) => my + slope * (x - mx);
+      if (pass === 0) { pts = pts.filter(([x, y]) => Math.abs(y - at(x)) < period * 0.08); continue; }
+      // Keep a beat where it is if the line is far from it (a real change in the music).
+      const fit = at(i);
+      return Number((Math.abs(fit - t) < period * 0.2 ? fit : t).toFixed(4));
+    }
+    return Number(t.toFixed(4));
+  });
+}
+
 function detectBeats(samples, sr) {
   const fps = sr / HOP;
   const env = onsetEnvelope(samples, sr);
@@ -130,7 +158,9 @@ function detectBeats(samples, sr) {
   }
   // How hard each beat hits (0 to 1, the strongest being 1), for effects on the big ones.
   const top = Math.max(1e-9, ...tr.power);
-  return { bpm: Math.round((600 * fps) / period) / 10, beats: tr.beats.map((b) => b / fps), strength: tr.power.map((v) => Number((v / top).toFixed(3))) };
+  // Each beat is reported at the middle of its envelope step (the hit lands somewhere inside it).
+  const times = steady(tr.beats.map((b) => (b + 0.5) / fps), tr.strong, period / fps);
+  return { bpm: Math.round((600 * fps) / period) / 10, beats: times, strength: tr.power.map((v) => Number((v / top).toFixed(3))) };
 }
 
 module.exports = { detectBeats };

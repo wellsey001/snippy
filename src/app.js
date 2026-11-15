@@ -5306,6 +5306,7 @@ async function cachedBeats(m) {
 // opts.musicFrom: where in the music to start (for a soundtrack taken from a video); opts.beats: beats
 // already found; opts.muteClips: the clips' own sound off (the music is their sound); opts.outro: the
 // closing words; opts.endFade: seconds of fade to black at the end.
+const CUT_LEAD = 1 / 30;
 async function buildFromTemplate(tpl, opts) {
   const { picks, musicId, maxLen, title, shots: chosen, musicFrom = 0, muteClips = false, outro = true, endFade = 0 } = opts;
   const music = musicId ? mediaById(musicId) : null;
@@ -5368,14 +5369,21 @@ async function buildFromTemplate(tpl, opts) {
     if (type === 'push' || type === 'whip' || type === 'wipe') c.transitionDir = i % 2 ? 'left' : 'right';
     const prev = clips[i - 1];
     if (type !== 'dip') {
+      // The switch happens halfway through a transition, so the transition is centred on the
+      // beat: the clip before runs on by half of it, and this one starts half of it early.
+      const half = ov / 2;
       const m = mediaById(prev.mediaId);
-      if (isImage(m)) prev.out += ov;
+      if (isImage(m)) prev.out += half;
       else {
         // Near the end of the video: start a little earlier instead, so the cut stays on the beat.
-        const over = Math.max(0, prev.out + ov - m.duration);
+        const over = Math.max(0, prev.out + half - m.duration);
         prev.in = Math.max(0, prev.in - over);
-        prev.out = Math.min(m.duration, prev.out + ov);
+        prev.out = Math.min(m.duration, prev.out + half);
       }
+      const cm = mediaById(c.mediaId);
+      if (isImage(cm)) c.out += half;
+      else if (c.in >= half) c.in -= half;
+      else { const short = half - c.in; c.in = 0; c.out = Math.min(cm.duration, c.out + short); }
     }
   });
   // Camera moves.
@@ -5400,7 +5408,10 @@ async function buildFromTemplate(tpl, opts) {
   state.audio = state.audio.filter((a) => !music || a.mediaId !== music.id);
   const total = totalDuration();
   if (music) {
-    const a = { ...newAudioItem(music, 0), in: first, out: Math.min(music.duration, first + total), volume: muteClips ? 1 : 0.85, fadeIn: muteClips ? 0.3 : 0, fadeOut: Math.min(2, total / 4) };
+    // Cuts land a frame before the beat: the eye takes a moment longer than the ear, so a cut
+    // exactly on the beat looks a touch late, and one a frame early looks bang on.
+    const lead = beats ? Math.min(first, CUT_LEAD) : 0;
+    const a = { ...newAudioItem(music, 0), start: beats ? Number((CUT_LEAD - lead).toFixed(3)) : 0, in: first - lead, out: Math.min(music.duration, first - lead + total), volume: muteClips ? 1 : 0.85, fadeIn: muteClips ? 0.3 : 0, fadeOut: Math.min(2, total / 4) };
     if (beats) { a.beats = beats; a.bpm = bpm; }
     if (!muteClips && clips.some((c) => mediaById(c.mediaId).hasAudio)) { a.duck = true; a.duckTo = 0.35; }
     state.audio.push(a);
@@ -8509,7 +8520,7 @@ function acBeatPolish(st, beatInfo, musicId) {
   const music = state.audio.find((a) => a.mediaId === musicId);
   const total = totalDuration();
   const beats = beatInfo && beatInfo.strength && music
-    ? beatInfo.beats.map((b, i) => ({ t: b - music.in, s: beatInfo.strength[i] || 0 })).filter((b) => b.t > 0.2 && b.t < total - 0.6)
+    ? beatInfo.beats.map((b, i) => ({ t: music.start + b - music.in, s: beatInfo.strength[i] || 0 })).filter((b) => b.t > 0.2 && b.t < total - 0.6)
     : [];
   const starts = clipStarts();
   const at = (t) => { for (let i = state.clips.length - 1; i >= 0; i--) if (t >= starts[i]) return i; return 0; };

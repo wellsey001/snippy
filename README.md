@@ -37,6 +37,15 @@ The installer is under 1 MB and downloads the rest of Snippy while it installs. 
 
 **You need:** Windows 10 or 11 (64-bit). A graphics card from NVIDIA, Intel or AMD makes exports faster, but isn't required.
 
+### On Android
+
+1. On your phone, open the [latest release](https://github.com/wellsey001/snippy/releases/latest) and download **`Snippy-<version>.apk`**.
+2. Open it. If Android asks, allow your browser to **install unknown apps**, then tap **Install**.
+
+Snippy for Android is laid out for phones: a big preview, a timeline you scroll with your thumb (pinch to zoom), and a toolbar along the bottom. It has the same editing core as the desktop app: trimming, splitting, reordering, speed, filters, transitions, text with animations, music with beat finding, the effects library, AutoCut and auto captions. Videos export to your gallery (Movies/Snippy) using the phone's own video encoder, and everything stays on your phone. Auto captions download the speech model (about 75 MB) the first time.
+
+**You need:** Android 8 or newer with an up-to-date "Android System WebView" (it updates from the Play Store).
+
 ## Features
 
 <details>
@@ -187,6 +196,10 @@ GitHub builds the installer itself:
 1. Raise the version in `package.json` and push the code.
 2. Open **Actions** → **Release Snippy** → **Run workflow**.
 3. About 10 minutes later, the release appears on the [Releases page](https://github.com/wellsey001/snippy/releases), and installed copies offer "Restart to update".
+
+The same run builds the Android app and adds `Snippy-<version>.apk` to the release. For a test build of the phone app alone, run **Actions** → **Android app** → **Run workflow**; it lands on the **android-preview** release. The phone app's code is in `mobile/` (it shares the effects, text, beat-finding and AutoCut code with the desktop app through `mobile/scripts/sync-shared.js`).
+
+Android only installs an update over an app signed with the same key. Add two repository secrets (**Settings** → **Secrets and variables** → **Actions**): `ANDROID_KEYSTORE` (the keystore file, base64-encoded) and `ANDROID_KEYSTORE_PASSWORD`. Keep a copy of the keystore somewhere safe: if it's lost, phones need to uninstall Snippy before installing a new version.
 
 The same build keeps the **components-v1** release up to date. It holds FFmpeg and FFprobe, which new installs download on first run, with a fingerprint for each file so a damaged download is never used. Don't delete that release.
 

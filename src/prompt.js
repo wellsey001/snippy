@@ -34,7 +34,8 @@
     let t = ` ${text.replace(/[“”]/g, '"').replace(/[‘’]/g, "'")} `;
 
     // A title: title "Summer 2026" (or title: Summer 2026, up to the next comma).
-    t = t.replace(/\b(?:title|called|named)\s*(?:is|of|:)?\s*"([^"]{1,60})"/i, (_, x) => { out.title = x.trim(); return ' '; });
+    t = t.replace(/(?:\b(?:add|put|use|show|include|with|and)\s+(?:a\s+|an\s+|the\s+)?)?\b(?:title|called|named)\s*(?:is|of|:)?\s*"([^"]{1,60})"/i, (_, x) => { out.title = x.trim(); return ' '; });
+    t = t.replace(/(?:\b(?:add|put|use|show|include|with)\s+)?"([^"]{1,60})"\s+as\s+(?:a\s+|the\s+)?title\b/i, (_, x) => { out.title = x.trim(); return ' '; });
     t = t.replace(/\btitle\s*:\s*([^,.;\n]{1,60})/i, (_, x) => { out.title = x.trim(); return ' '; });
     if (out.title) out.understood.push(`Title "${out.title}"`);
 

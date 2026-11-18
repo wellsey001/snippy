@@ -1,6 +1,6 @@
 {
   "name": "snippy",
-  "version": "0.48.1",
+  "version": "0.49.0",
   "description": "A free, playful desktop video editor",
   "main": "main.js",
   "scripts": {
@@ -49,6 +49,7 @@
       "!node_modules/onnxruntime-node/bin/napi-v*/linux/**",
       "!node_modules/onnxruntime-node/bin/napi-v*/win32/arm64/**",
       "!docs/**",
+      "!mobile/**",
       "!components/**",
       "!build-exclude.json",
       "!node_modules/onnxruntime-web/**",

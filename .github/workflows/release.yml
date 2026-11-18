@@ -67,3 +67,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --win nsis-web --publish always
+
+  # The Android app, built after the Windows one and added to the same release.
+  android:
+    needs: windows
+    uses: ./.github/workflows/android.yml
+    with:
+      release: true
+    secrets: inherit

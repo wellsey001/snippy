@@ -12,3 +12,9 @@ Thumbs.db
 desktop.ini
 *.log
 build-exclude.json
+# The phone app's build output (made on GitHub)
+mobile/node_modules/
+mobile/android/
+mobile/www/capacitor.js
+*.keystore
+*.jks

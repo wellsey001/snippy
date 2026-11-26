@@ -42,7 +42,7 @@ The installer is under 1 MB and downloads the rest of Snippy while it installs. 
 1. On your phone, open the [latest release](https://github.com/wellsey001/snippy/releases/latest) and download **`Snippy-<version>.apk`**.
 2. Open it. If Android asks, allow your browser to **install unknown apps**, then tap **Install**.
 
-Snippy for Android is laid out for phones: a big preview, a timeline you scroll with your thumb (pinch to zoom), and a toolbar along the bottom. It has the same editing core as the desktop app: trimming, splitting, reordering, speed, filters, transitions, text with animations, music with beat finding, the effects library, AutoCut and auto captions. Videos export to your gallery (Movies/Snippy) using the phone's own video encoder, and everything stays on your phone. Auto captions download the speech model (about 75 MB) the first time.
+Snippy for Android is laid out for phones: a big preview, a timeline you scroll with your thumb (pinch to zoom), and a toolbar along the bottom. It has the same editing core as the desktop app: trimming, splitting, reordering, speed, filters, transitions, clip animations, text with animations, music with beat finding, the effects library, AutoCut and auto captions. Videos export to your gallery (Movies/Snippy) using the phone's own video encoder, and everything stays on your phone. Auto captions download the speech model (about 75 MB) the first time.
 
 **You need:** Android 8 or newer with an up-to-date "Android System WebView" (it updates from the Play Store).
 
@@ -100,6 +100,7 @@ Snippy for Android is laid out for phones: a big preview, a timeline you scroll 
 
 - Colour looks, curves, .cube LUTs, and brightness, contrast and saturation
 - Touch up: light, medium or strong skin smoothing with a little extra light, for faces close to the camera
+- **Clip animations** for videos and photos (Video → Animate, or Animate on the phone): how a clip comes in (fade, zoom in or out, pop, slides, rise, drop, spin, swing, whip, bounce), goes out (fade, zooms, slides, fly up, drop away, spin, whip), and moves while it shows (slow zoom in or out and pans for photos, shake, earthquake, pulse, heartbeat, rock, float, swirl, jolt). One click puts them on every clip or every photo, and the export matches the preview
 - **Effects library** (35 effects, in an Effects tab beside your media; hover over one to see it play, click to try it on the preview):
   - *Camera & motion:* zoom blur, sway, slow push, wobble, mirror, mirror ×4, split ×4, fisheye, shake, glitch
   - *Light & colour:* light leak, lens flare, glow, neon edges, rainbow, strobe, red pop, noir, duotone

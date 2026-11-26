@@ -246,6 +246,7 @@ const Toolbar = {
         m && m.kind === 'video' ? tool('volume', 'Volume', () => Sheets.volume(it)) : null,
         tool('filter', 'Filters', () => Sheets.filters(it)),
         tool('sparkle', 'Effects', () => Sheets.effects(it)),
+        tool('wand', 'Animate', () => Sheets.animate(it)),
         tool('transition', 'Transition', () => Sheets.transition(App.p.clips.indexOf(it) || 1)),
         tool('reset', 'Reset fit', () => { commit(); delete it.zoom; delete it.x; delete it.y; delete it.rot; changed(); }),
         tool('left', 'Move left', () => Edit.move(it, -1)),

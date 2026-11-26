@@ -391,3 +391,49 @@ function lineUpCuts(a) {
   changed();
   toast(moved ? `Moved ${moved} cut${moved === 1 ? '' : 's'} onto the beat` : 'Your cuts were already on the beat');
 }
+
+// Clip animations: how a clip comes in, goes out, and moves while it shows (shared/anims.js).
+Sheets.animate = function animate(c) {
+  const p = App.p;
+  commit();
+  const field = { in: 'animIn', out: 'animOut', loop: 'animLoop' };
+  const show = (kind) => {
+    const i = p.clips.indexOf(c);
+    const s = clipStarts(p)[i];
+    const L = clipLen(c);
+    const from = kind === 'out' ? s + Math.max(0, L - 2) : s;
+    const len = kind === 'loop' ? Math.min(3, L) : Math.min(2, L);
+    App.player.seek(from + 0.001);
+    App.player.play();
+    clearTimeout(show.t);
+    show.t = setTimeout(() => { if (App.player.playing) App.player.pause(); }, len * 1000);
+  };
+  openSheet('Animate', (b) => {
+    const draw = () => {
+      b.textContent = '';
+      const m = Media.get(c.mediaId);
+      b.append(h('p', { class: 'hint' }, m && m.kind === 'image' ? 'Bring your photo to life: a slow zoom or pan while it shows, and a way in and out.' : 'Zooms, slides, spins and shakes for this clip.'));
+      for (const [kind, title] of [['in', 'Comes in'], ['out', 'Goes out'], ['loop', 'While showing']]) {
+        const cur = (c[field[kind]] && c[field[kind]].id) || 'none';
+        b.append(field_(title, chips([['none', 'None'], ...SnippyAnims.LISTS[kind].map((a) => [a.id, a.name])], cur, (id) => {
+          if (id === 'none') delete c[field[kind]];
+          else c[field[kind]] = { ...(c[field[kind]] || {}), id, ...(kind === 'loop' ? { k: (c.animLoop && c.animLoop.k) ?? SnippyAnims.DEFAULT_K } : { d: (c[field[kind]] && c[field[kind]].d) || SnippyAnims.DEFAULT_DUR }) };
+          changed();
+          if (id !== 'none') show(kind);
+          draw();
+        })));
+        const a = c[field[kind]];
+        if (a && kind !== 'loop') b.append(slider(kind === 'in' ? 'Coming in takes' : 'Going out takes', { min: 0.2, max: 2, step: 0.05, value: a.d || SnippyAnims.DEFAULT_DUR, format: (v) => `${v.toFixed(2)} s`, onInput: (v) => { a.d = v; changed({ save: false }); } }));
+        if (a && kind === 'loop') b.append(slider('Strength', { min: 0.1, max: 1, step: 0.05, value: a.k ?? SnippyAnims.DEFAULT_K, format: pct, onInput: (v) => { a.k = v; changed({ save: false }); } }));
+      }
+      if (SnippyAnims.has(c) && p.clips.length > 1) {
+        const copy = (x) => { for (const k of Object.values(field)) { if (c[k]) x[k] = { ...c[k] }; else delete x[k]; } };
+        b.append(h('div', { class: 'btn-row' },
+          h('button', { class: 'btn', onClick: () => { commit(); for (const x of p.clips) copy(x); changed(); toast('Used on every clip'); } }, 'Every clip'),
+          h('button', { class: 'btn', onClick: () => { commit(); let n = 0; for (const x of p.clips) { const mm = Media.get(x.mediaId); if (mm && mm.kind === 'image') { copy(x); n++; } } changed(); toast(n ? `Used on ${n} photo${n === 1 ? '' : 's'}` : 'No photos in this video'); } }, 'Every photo')));
+      }
+    };
+    draw();
+  }, { tall: true });
+};
+const field_ = field;

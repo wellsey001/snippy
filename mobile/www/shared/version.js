@@ -1,1 +1,1 @@
-window.SNIPPY_VERSION = "0.49.0";
+window.SNIPPY_VERSION = "0.50.0";

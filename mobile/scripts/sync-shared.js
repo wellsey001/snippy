@@ -8,7 +8,7 @@ const path = require('path');
 const root = path.join(__dirname, '..', '..');
 const out = path.join(__dirname, '..', 'www', 'shared');
 fs.mkdirSync(out, { recursive: true });
-for (const f of ['effects.js', 'captions.js', 'plans.js', 'keyframes.js', 'prompt.js']) {
+for (const f of ['effects.js', 'anims.js', 'captions.js', 'plans.js', 'keyframes.js', 'prompt.js']) {
   fs.copyFileSync(path.join(root, 'src', f), path.join(out, f));
 }
 // Files written for Node are wrapped so a web page can use them (as window.<name>).

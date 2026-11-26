@@ -12,6 +12,7 @@ const smartCut = require('./smart-cut');
 const reframe = require('./reframe');
 const plans = require('./src/plans');
 const effects = require('./src/effects');
+const anims = require('./src/anims');
 const tts = require('./tts');
 const soundPack = require('./sound-pack');
 const tracker = require('./tracker');
@@ -434,23 +435,26 @@ function transformFilter(m, W, H, tag) {
   const keyed = Boolean(m.keys && m.keys.length);
   const still = (p, d) => !keyed && Math.abs((m[p] ?? d) - d) < 1e-4;
   const flip = `${m.flipH ? ',hflip' : ''}${m.flipV ? ',vflip' : ''}`;
-  if (still('zoom', 1) && still('posX', 0) && still('posY', 0) && still('rotate', 0)) return flip;
-  const Z = kfExpr(m, 'zoom', 't');
-  const X = kfExpr(m, 'posX', 't');
-  const Y = kfExpr(m, 'posY', 't');
-  const turns = !still('rotate', 0);
+  // Clip animations (zooms, slides, shakes…), added on top of the clip's own size and position.
+  const A = m.anim ? anims.ffExprs(m.anim, m.anim.L, 't') : null;
+  if (!A && still('zoom', 1) && still('posX', 0) && still('posY', 0) && still('rotate', 0)) return flip;
+  const Z = A ? `(${kfExpr(m, 'zoom', 't')})*(${A.z})` : kfExpr(m, 'zoom', 't');
+  const X = A ? `(${kfExpr(m, 'posX', 't')})+(${A.x})` : kfExpr(m, 'posX', 't');
+  const Y = A ? `(${kfExpr(m, 'posY', 't')})+(${A.y})` : kfExpr(m, 'posY', 't');
+  const turns = !still('rotate', 0) || Boolean(A && A.r !== '0');
   // Quick way for the usual case (zoomed in, not turned, no black edges showing): enlarge, then crop.
   // Every keyframe inside those limits keeps the whole move inside them, as the limits form a convex shape.
   const states = [m, ...(m.keys || [])].map((k) => ({ z: k.zoom ?? m.zoom ?? 1, x: k.posX ?? m.posX ?? 0, y: k.posY ?? m.posY ?? 0 }));
-  if (!turns && states.every((v) => v.z >= 1 && Math.abs(v.x) <= (v.z - 1) / 2 + 1e-6 && Math.abs(v.y) <= (v.z - 1) / 2 + 1e-6)) {
+  if (!A && !turns && states.every((v) => v.z >= 1 && Math.abs(v.x) <= (v.z - 1) / 2 + 1e-6 && Math.abs(v.y) <= (v.z - 1) / 2 + 1e-6)) {
     const ZW = `(trunc(${W}*(${Z})/2)*2)`;
     const ZH = `(trunc(${H}*(${Z})/2)*2)`;
     return `${flip},scale=w='${ZW}':h='${ZH}':eval=frame,` +
       `crop=${W}:${H}:x='clip((${ZW}-${W})/2-(${X})*${W},0,${ZW}-${W})':y='clip((${ZH}-${H})/2-(${Y})*${H},0,${ZH}-${H})',setsar=1`;
   }
-  const R = turns ? `,rotate=a='(${kfExpr(m, 'rotate', 't')})*PI/180':ow='hypot(iw,ih)':oh=ow:c=black@0` : '';
+  const R = turns ? `,rotate=a='(${kfExpr(m, 'rotate', 't')}${A ? `+(${A.r})` : ''})*PI/180':ow='hypot(iw,ih)':oh=ow:c=black@0` : '';
+  const fades = A ? `${A.fadeIn ? `,fade=t=in:st=0:d=${A.fadeIn.toFixed(3)}:alpha=1` : ''}${A.fadeOut ? `,fade=t=out:st=${A.fadeOut.st.toFixed(3)}:d=${A.fadeOut.d.toFixed(3)}:alpha=1` : ''}` : '';
   return `${flip},split[${tag}a][${tag}b];[${tag}b]drawbox=x=0:y=0:w=iw:h=ih:color=black:t=fill[${tag}bg];` +
-    `[${tag}a]format=rgba${R},scale=w='max(2,trunc(iw*(${Z})/2)*2)':h='max(2,trunc(ih*(${Z})/2)*2)':eval=frame[${tag}fg];` +
+    `[${tag}a]format=rgba${R},scale=w='max(2,trunc(iw*(${Z})/2)*2)':h='max(2,trunc(ih*(${Z})/2)*2)':eval=frame${fades}[${tag}fg];` +
     `[${tag}bg][${tag}fg]overlay=x='(W-w)/2+(${X})*W':y='(H-h)/2+(${Y})*H':eval=frame,format=yuv420p,setsar=1`;
 }
 

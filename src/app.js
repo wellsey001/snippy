@@ -1142,7 +1142,7 @@ function syncCrossLayer(forceSeek) {
     videoB.hidden = true;
     stillB.hidden = false;
     if (stillB.dataset.mediaId !== m.id) { stillB.src = m.url; stillB.dataset.mediaId = m.id; }
-    stillB.style.filter = cssFilter(x.clip);
+    stillB.style.filter = `${cssFilter(x.clip)}${clipAnimFade(x.clip, Math.max(0, (x.src - x.clip.in) / spd(x.clip)))}`.replace(/^none /, '');
     stillB.style.transform = clipZoomTransform(x.clip, Math.max(0, (x.src - x.clip.in) / spd(x.clip)));
     stillB.style.clipPath = clipCropPath(x.clip);
     styleCross(x);
@@ -1154,7 +1154,7 @@ function syncCrossLayer(forceSeek) {
   const bSrc = dB ? dB.url : srcFor(m);
   const bTime = dB ? x.src - x.clip.in : x.src;
   if (videoB.dataset.src !== bSrc) { videoB.src = bSrc; videoB.dataset.src = bSrc; videoB.dataset.mediaId = m.id; }
-  videoB.style.filter = cssFilter(x.clip);
+  videoB.style.filter = `${cssFilter(x.clip)}${clipAnimFade(x.clip, Math.max(0, (x.src - x.clip.in) / spd(x.clip)))}`.replace(/^none /, '');
   videoB.style.transform = clipZoomTransform(x.clip, Math.max(0, (x.src - x.clip.in) / spd(x.clip)));
   videoB.style.clipPath = clipCropPath(x.clip);
   styleCross(x);
@@ -1805,9 +1805,10 @@ function updateFx() {
   const zoomT = c ? clipZoomTransform(c, Math.max(0, state.playhead - clipStarts()[currentIndex])) : '';
   const cropP = c ? clipCropPath(c) : '';
   for (const el of [video, still]) el.style.clipPath = cropP;
+  const fadeF = c ? clipAnimFade(c, Math.max(0, state.playhead - clipStarts()[currentIndex])) : '';
   if (!fx) {
     layer.hidden = true;
-    for (const el of [video, still]) { el.style.transform = zoomT; el.style.filter = base; }
+    for (const el of [video, still]) { el.style.transform = zoomT; el.style.filter = `${base === 'none' ? '' : base}${fadeF}`.trim() || 'none'; }
     return;
   }
   const stage = $('#stage');
@@ -1841,7 +1842,7 @@ function updateFx() {
   }
   const filter = (base === 'none' ? '' : base) + extra;
   // The effect's own movement goes on top of the clip's zoom and pan, as in the export.
-  for (const el of [video, still]) { el.style.transform = `${transform} ${zoomT}`.trim(); el.style.filter = filter.trim() || 'none'; }
+  for (const el of [video, still]) { el.style.transform = `${transform} ${zoomT}`.trim(); el.style.filter = `${filter.trim()}${fadeF}`.trim() || 'none'; }
   layer.hidden = !(grain || scan || vignette);
   const g = $('#fxGrain');
   g.style.opacity = String(grain);
@@ -3049,10 +3050,21 @@ function keyframeSection(item, kind) {
 // Size, position, turn and flip of a clip, applied in the preview the same way the export does it:
 // the canvas-sized picture is flipped, turned, resized, then moved (posX/posY are shares of the canvas).
 function clipZoomTransform(c, u) {
-  const v = kfValue(c, 'clip', u);
+  const v = { ...kfValue(c, 'clip', u) };
+  // Clip animations ride on top of the clip's own size, position and turn.
+  if (SnippyAnims.has(c)) {
+    const a = SnippyAnims.at(c, u, clipLen(c));
+    v.zoom *= a.z; v.posX += a.x; v.posY += a.y; v.rotate += a.r;
+  }
   const flip = `${c.flipH ? ' scaleX(-1)' : ''}${c.flipV ? ' scaleY(-1)' : ''}`;
   if (Math.abs(v.zoom - 1) < 1e-4 && !v.posX && !v.posY && !v.rotate) return flip.trim();
   return `translate(${(v.posX * 100).toFixed(3)}%, ${(v.posY * 100).toFixed(3)}%) rotate(${v.rotate.toFixed(3)}deg) scale(${v.zoom.toFixed(4)})${flip}`;
+}
+// A clip fading in or out with its animation: as a CSS filter, so the effect and colour layers copy it.
+function clipAnimFade(c, u) {
+  if (!SnippyAnims.has(c)) return '';
+  const a = SnippyAnims.at(c, u, clipLen(c)).a;
+  return a < 0.999 ? ` opacity(${Math.max(0, a).toFixed(3)})` : '';
 }
 
 // Where the picture sits inside the canvas before any transform (it's fitted, keeping its shape),
@@ -3193,6 +3205,7 @@ function renderInspector() {
 // Sections are matched by title; anything not listed stays with the section before it.
 
 const TAB_ICONS = {
+  anim: '<path d="M4 17c3 0 4-10 8-10s5 10 8 10"/><circle cx="4" cy="17" r="1.5"/><circle cx="20" cy="17" r="1.5"/>',
   video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M3 15h18M8 5v4M16 5v4M8 15v4M16 15v4"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M14 6l4 4"/>',
   speed: '<path d="M12 14l4-4"/><path d="M3.5 18a9 9 0 1 1 17 0"/>',
@@ -3220,6 +3233,7 @@ const INSPECTOR_TABS = {
     ['audio', 'Audio', ['Sound and picture', 'Clip volume', 'Voice', 'Background noise']],
     ['motion', 'Transform', ['Keyframes', 'Scale', 'Position left / right', 'Position up / down', 'Rotation', 'Turn and flip', 'Crop left', 'Crop right', 'Crop top', 'Crop bottom']],
     ['mask', 'Mask', ['Mask', 'Mask outside', 'Mask size', 'Mask width', 'Mask left / right', 'Mask up / down', 'Mask soft edge']],
+    ['anim', 'Animate', ['Animation', 'Comes in', 'Goes out', 'While showing', 'Coming in takes', 'Going out takes', 'Movement strength']],
     ['colour', 'Colour', ['Touch up', 'Effect', 'Look', 'Brightness', 'Contrast', 'Saturation', 'Curves', 'Colour LUT']],
   ],
   overlay: [
@@ -3254,7 +3268,7 @@ const INSPECTOR_TABS = {
 // Tabs that share a place in the tab bar, with small buttons underneath to pick between them,
 // so the bar stays short: [group id, label, member tab ids].
 const TAB_GROUPS = {
-  clip: [['g-edit', 'Edit', ['edit', 'speed']], ['g-audio', 'Audio', ['audio']], ['g-video', 'Video', ['motion', 'mask']], ['g-colour', 'Colour', ['colour']]],
+  clip: [['g-edit', 'Edit', ['edit', 'speed']], ['g-audio', 'Audio', ['audio']], ['g-video', 'Video', ['motion', 'anim', 'mask']], ['g-colour', 'Colour', ['colour']]],
   overlay: [['g-layout', 'Layout', ['layout', 'shape']], ['g-motion', 'Motion', ['motion']], ['g-cutout', 'Cut out', ['cutout']], ['g-colour', 'Colour', ['colour']]],
 };
 const GROUP_ICON = { 'g-edit': 'edit', 'g-audio': 'audio', 'g-video': 'video', 'g-colour': 'colour', 'g-layout': 'layout', 'g-motion': 'motion', 'g-cutout': 'cutout' };
@@ -3562,6 +3576,7 @@ function renderClipInspector(ins, c) {
       class: 'btn', onClick: () => { commit(); for (const x of state.clips) x.touch = c.touch; markDirty(); renderInspector(); toast(`Touch up on all ${state.clips.length} clips`); },
     }, 'Use on all clips')) : null,
     effectSection(c),
+    animSection(c),
     lookSection(c, m),
     ...adjustSliders(c),
     curveSection(c),
@@ -6339,7 +6354,7 @@ function buildExportProject(settings, width, height) {
         path: m.path, isImage: isImage(m), in: c.in, out: c.out, hasAudio: m.hasAudio, speed: spd(c), color: colorSteps(c), curve: c.curve || null, lut: c.lut || null, fx: c.fx || null, fxK: c.fxK ?? null, fxBeats: SnippyFx.isNew(c.fx) ? localBeats(clipStarts()[i], clipLen(c)) : null, denoise: Boolean(c.denoise),
         touch: touchOf(c) ? { op: touchOf(c).op, bright: touchOf(c).bright, sigma: Number((touchOf(c).k * Math.min(height, (width * (m.height || 9)) / (m.width || 16))).toFixed(2)) } : null,
         mode: !isImage(m) && c.mode ? c.mode : null, ramp: !isImage(m) && rampFor(c) ? c.ramp : null, stab: !isImage(m) && c.stab ? c.stab : null, voice: c.voice && c.voice !== 'none' ? c.voice : null,
-        motion: { zoom: c.zoom ?? 1, posX: c.posX || 0, posY: c.posY || 0, rotate: c.rotate || 0, flipH: Boolean(c.flipH), flipV: Boolean(c.flipV), keys: c.keys },
+        motion: { zoom: c.zoom ?? 1, posX: c.posX || 0, posY: c.posY || 0, rotate: c.rotate || 0, flipH: Boolean(c.flipH), flipV: Boolean(c.flipV), keys: c.keys, anim: SnippyAnims.has(c) ? { animIn: c.animIn, animOut: c.animOut, animLoop: c.animLoop, L: clipLen(c) } : null },
         crop: c.crop && (c.crop.l || c.crop.r || c.crop.t || c.crop.b) ? c.crop : null,
         volume: (c.volume == null ? 1 : c.volume) * trackGain('video'), blank: trackHidden('video'), fadeIn: fades[i].fin, fadeOut: fades[i].fout, crossIn: overlapOf(i),
         xStyle: c.transitionType || null, xDir: c.transitionDir || 'left', xLen: c.transition || 0,
@@ -12098,4 +12113,58 @@ $('#fxOnTime').addEventListener('click', () => {
     else addEffectAt(id, Math.max(0, timeAtClientX(e.clientX)), SnippyFx.DEFAULT_K);
     stopTrying();
   });
+}
+
+
+// ---------- clip animations: how a clip comes in, goes out, and moves while it shows (src/anims.js)
+
+// Plays the part of the clip an animation affects, so you see it straight away.
+function previewAnim(c, part) {
+  const i = state.clips.indexOf(c);
+  if (i < 0) return;
+  const s = clipStarts()[i];
+  const L = clipLen(c);
+  const from = part === 'out' ? Math.max(s, s + L - Math.min(2, L)) : s;
+  const to = part === 'in' ? s + Math.min(2, L) : part === 'out' ? s + L - 0.02 : s + Math.min(3, L);
+  if (state.playing) pause();
+  seek(from + 0.001);
+  play();
+  clearTimeout(previewAnim.timer);
+  previewAnim.timer = setTimeout(() => { if (state.playing) pause(); }, Math.max(400, (to - from) * 1000));
+}
+
+function animSection(c) {
+  const field = { in: 'animIn', out: 'animOut', loop: 'animLoop' };
+  const pick = (kind, id) => {
+    commit();
+    if (id === 'none') delete c[field[kind]];
+    else c[field[kind]] = { ...(c[field[kind]] || {}), id, ...(kind === 'loop' ? { k: (c.animLoop && c.animLoop.k) ?? SnippyAnims.DEFAULT_K } : { d: (c[field[kind]] && c[field[kind]].d) || SnippyAnims.DEFAULT_DUR }) };
+    updateFx(); markDirty(); renderTimeline(); renderInspector();
+    if (id !== 'none') previewAnim(c, kind);
+  };
+  const row = (kind, title) => {
+    const cur = (c[field[kind]] && c[field[kind]].id) || 'none';
+    return section(title, h('div', { class: 'choices', role: 'group', 'aria-label': title },
+      ...[['none', 'None'], ...SnippyAnims.LISTS[kind].map((a) => [a.id, a.name])].map(([id, name]) => h('button', {
+        class: 'btn', 'aria-pressed': String(cur === id), onClick: () => pick(kind, id),
+      }, name))));
+  };
+  const m = mediaById(c.mediaId);
+  const out = [
+    section('Animation', h('p', { class: 'hint' }, isImage(m)
+      ? 'Bring a photo to life: a slow zoom or pan while it shows, and a way in and out. The export matches the preview.'
+      : 'Zooms, slides, spins and shakes for this clip. The export matches the preview.')),
+    row('in', 'Comes in'),
+  ];
+  if (c.animIn) out.push(sliderSection('Coming in takes', { min: 0.2, max: 2, step: 0.05, value: c.animIn.d || SnippyAnims.DEFAULT_DUR, format: (v) => `${v.toFixed(2)} s`, key: `${c.id}:animInD`, onValue: (v) => { c.animIn.d = v; updateFx(); markDirty(); } }));
+  out.push(row('out', 'Goes out'));
+  if (c.animOut) out.push(sliderSection('Going out takes', { min: 0.2, max: 2, step: 0.05, value: c.animOut.d || SnippyAnims.DEFAULT_DUR, format: (v) => `${v.toFixed(2)} s`, key: `${c.id}:animOutD`, onValue: (v) => { c.animOut.d = v; updateFx(); markDirty(); } }));
+  out.push(row('loop', 'While showing'));
+  if (c.animLoop) out.push(sliderSection('Movement strength', { min: 0.1, max: 1, step: 0.05, value: c.animLoop.k ?? SnippyAnims.DEFAULT_K, format: (v) => `${Math.round(v * 100)}%`, key: `${c.id}:animK`, onValue: (v) => { c.animLoop.k = v; updateFx(); markDirty(); } }));
+  if (SnippyAnims.has(c) && state.clips.length > 1) {
+    out.push(h('div', { class: 'btn-row look-actions' },
+      h('button', { class: 'btn', onClick: () => { commit(); for (const x of state.clips) { x.animIn = c.animIn ? { ...c.animIn } : undefined; x.animOut = c.animOut ? { ...c.animOut } : undefined; x.animLoop = c.animLoop ? { ...c.animLoop } : undefined; } updateFx(); markDirty(); renderTimeline(); toast(`Used on all ${state.clips.length} clips`); } }, 'Use on every clip'),
+      h('button', { class: 'btn', onClick: () => { commit(); let n = 0; for (const x of state.clips) if (isImage(mediaById(x.mediaId))) { x.animLoop = { ...(c.animLoop || { id: 'kenin', k: SnippyAnims.DEFAULT_K }) }; n++; } updateFx(); markDirty(); renderTimeline(); toast(n ? `Used on ${n} photo${n === 1 ? '' : 's'}` : 'No photos on the timeline'); } }, 'Use on every photo')));
+  }
+  return out;
 }

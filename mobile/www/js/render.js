@@ -103,11 +103,15 @@ class Renderer {
     const [ox, oy] = c.fx && !SnippyFx.isNew(c.fx) ? classicOffset(c.fx, u, H) : [0, 0];
     const scale = tr.scale || 1;
     const blur = tr.blur || 0;
+    // The clip's animation (shared/anims.js): zooms, slides, spins, shakes and fades.
+    const an = SnippyAnims.has(c) ? SnippyAnims.at(c, u, clipLen(c)) : null;
+    const alpha = (tr.alpha ?? 1) * (an ? an.a : 1);
     const t = target;
     t.save();
-    if (target === g) t.globalAlpha = tr.alpha ?? 1;
+    if (target === g) t.globalAlpha = alpha;
     // Background behind a picture that doesn't fill the frame.
     const pl = this.placement(c, src.w, src.h);
+    if (an) { pl.w *= an.z; pl.h *= an.z; pl.cx += an.x * W; pl.cy += an.y * H; pl.rot += (an.r * Math.PI) / 180; }
     const fills = pl.w >= W - 1 && pl.h >= H - 1 && !c.rot && !c.x && !c.y;
     if (!fills) {
       if (p.bg === 'blur') {
@@ -140,7 +144,7 @@ class Renderer {
       if (!this.fx) this.fx = new FxRunner();
       const out = this.fx.ok ? this.fx.run(this.layer, [fxPass(p, c.fx, c.fxK, u, clipLen(c), this.clipStart(p, c))]) : this.layer;
       g.save();
-      g.globalAlpha = tr.alpha ?? 1;
+      g.globalAlpha = alpha;
       g.drawImage(out, 0, 0, W, H);
       g.restore();
     } else if (c.fx === 'grain' || c.fx === 'vhs' || c.fx === 'oldfilm') {

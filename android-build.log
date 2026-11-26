@@ -1,0 +1,365 @@
+++ node -p 'require('\''./package.json'\'').version'
++ version=0.50.0
++ node mobile/scripts/sync-shared.js
+Shared code copied to mobile/www/shared (version 0.50.0)
++ cd mobile
++ npm install --no-audit --no-fund
+
+added 97 packages in 4s
++ cp node_modules/@capacitor/core/dist/capacitor.js www/capacitor.js
++ npx cap add android
+✔ Adding native android project in android in 37.69ms
+✔ add in 38.11ms
+✔ Copying web assets from www to android/app/src/main/assets/public in 7.27ms
+✔ Creating capacitor.config.json in android/app/src/main/assets in 407.42μs
+✔ copy android in 14.18ms
+✔ Updating Android plugins in 799.38μs
+[info] Found 3 Capacitor plugins for android:
+       @capacitor/app@7.1.2
+       @capacitor/filesystem@7.1.9
+       @capacitor/share@7.0.4
+✔ update android in 19.67ms
+✔ Syncing Gradle in 167.27μs
+[success] android platform added!
+Follow the Developer Workflow guide to get building:
+https://capacitorjs.com/docs/basics/workflow
++ node scripts/android-setup.js
+Android project set up: Snippy 0.50.0 (version code 5000)
++ npx cap sync android
+✔ Copying web assets from www to android/app/src/main/assets/public in 9.82ms
+✔ Creating capacitor.config.json in android/app/src/main/assets in 631.81μs
+✔ copy android in 17.68ms
+✔ Updating Android plugins in 810.13μs
+[info] Found 3 Capacitor plugins for android:
+       @capacitor/app@7.1.2
+       @capacitor/filesystem@7.1.9
+       @capacitor/share@7.0.4
+✔ update android in 28.91ms
+[info] Sync finished in 0.064s
++ cd android
++ chmod +x gradlew
++ '[' -n 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 ']'
++ '[' -n wTH19FIIUTwNXkXpKD2aCjIq ']'
++ base64 -d
++ echo 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
++ ./gradlew assembleRelease --no-daemon --stacktrace -Pandroid.injected.signing.store.file=/home/runner/work/_temp/snippy.keystore -Pandroid.injected.signing.store.password=wTH19FIIUTwNXkXpKD2aCjIq -Pandroid.injected.signing.key.alias=snippy -Pandroid.injected.signing.key.password=wTH19FIIUTwNXkXpKD2aCjIq
+Downloading https://services.gradle.org/distributions/gradle-8.11.1-all.zip
+.....................10%......................20%......................30%......................40%......................50%......................60%......................70%......................80%......................90%......................100%
+
+Welcome to Gradle 8.11.1!
+
+Here are the highlights of this release:
+ - Parallel load and store for Configuration Cache
+ - Java compilation errors at the end of the build output
+ - Consolidated report for warnings and deprecations
+
+For more details see https://docs.gradle.org/8.11.1/release-notes.html
+
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.11.1/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :app
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Configure project :capacitor-cordova-android-plugins
+WARNING: Using flatDir should be avoided because it doesn't support any meta-data formats.
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preReleaseBuild UP-TO-DATE
+> Task :capacitor-android:preBuild UP-TO-DATE
+> Task :capacitor-android:preReleaseBuild UP-TO-DATE
+> Task :app:javaPreCompileRelease
+> Task :capacitor-app:preBuild UP-TO-DATE
+> Task :capacitor-app:preReleaseBuild UP-TO-DATE
+> Task :capacitor-app:writeReleaseAarMetadata
+> Task :capacitor-android:writeReleaseAarMetadata
+> Task :capacitor-cordova-android-plugins:preBuild UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:preReleaseBuild UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:writeReleaseAarMetadata
+> Task :capacitor-filesystem:preBuild UP-TO-DATE
+> Task :capacitor-filesystem:preReleaseBuild UP-TO-DATE
+> Task :capacitor-share:preBuild UP-TO-DATE
+> Task :capacitor-share:preReleaseBuild UP-TO-DATE
+> Task :capacitor-filesystem:writeReleaseAarMetadata
+> Task :capacitor-share:writeReleaseAarMetadata
+> Task :app:generateReleaseResValues
+> Task :capacitor-android:generateReleaseResValues
+> Task :capacitor-android:generateReleaseResources
+> Task :app:checkReleaseAarMetadata
+> Task :capacitor-android:packageReleaseResources
+> Task :capacitor-app:generateReleaseResValues
+> Task :capacitor-app:generateReleaseResources
+> Task :capacitor-app:packageReleaseResources
+> Task :capacitor-cordova-android-plugins:generateReleaseResValues
+> Task :capacitor-cordova-android-plugins:generateReleaseResources
+> Task :capacitor-cordova-android-plugins:packageReleaseResources
+> Task :capacitor-filesystem:generateReleaseResValues
+> Task :capacitor-filesystem:generateReleaseResources
+> Task :capacitor-filesystem:packageReleaseResources
+> Task :capacitor-share:generateReleaseResValues
+> Task :capacitor-share:generateReleaseResources
+> Task :capacitor-share:packageReleaseResources
+> Task :app:mapReleaseSourceSetPaths
+> Task :app:generateReleaseResources
+> Task :app:packageReleaseResources
+> Task :app:createReleaseCompatibleScreenManifests
+> Task :app:extractDeepLinksRelease
+> Task :capacitor-android:extractDeepLinksRelease
+> Task :capacitor-app:extractDeepLinksRelease
+> Task :app:parseReleaseLocalResources
+> Task :capacitor-app:processReleaseManifest
+> Task :capacitor-android:processReleaseManifest
+> Task :capacitor-cordova-android-plugins:extractDeepLinksRelease
+> Task :capacitor-filesystem:extractDeepLinksRelease
+> Task :capacitor-cordova-android-plugins:processReleaseManifest
+> Task :capacitor-share:extractDeepLinksRelease
+> Task :capacitor-filesystem:processReleaseManifest
+> Task :capacitor-share:processReleaseManifest
+> Task :capacitor-android:parseReleaseLocalResources
+> Task :capacitor-android:compileReleaseLibraryResources
+> Task :app:processReleaseMainManifest
+> Task :app:mergeReleaseResources
+> Task :app:processReleaseManifest
+> Task :app:processReleaseManifestForPackage
+> Task :capacitor-app:compileReleaseLibraryResources
+> Task :capacitor-cordova-android-plugins:compileReleaseLibraryResources
+> Task :capacitor-app:parseReleaseLocalResources
+> Task :capacitor-cordova-android-plugins:parseReleaseLocalResources
+> Task :capacitor-android:generateReleaseRFile
+> Task :capacitor-cordova-android-plugins:generateReleaseRFile
+> Task :capacitor-app:generateReleaseRFile
+> Task :capacitor-filesystem:compileReleaseLibraryResources
+> Task :capacitor-filesystem:parseReleaseLocalResources
+> Task :capacitor-share:compileReleaseLibraryResources
+> Task :capacitor-filesystem:generateReleaseRFile
+> Task :capacitor-android:javaPreCompileRelease
+> Task :capacitor-share:parseReleaseLocalResources
+> Task :capacitor-app:javaPreCompileRelease
+
+> Task :capacitor-android:compileReleaseJavaWithJavac
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :capacitor-share:generateReleaseRFile
+> Task :capacitor-android:bundleLibCompileToJarRelease
+> Task :capacitor-app:compileReleaseJavaWithJavac
+> Task :capacitor-app:bundleLibCompileToJarRelease
+> Task :capacitor-cordova-android-plugins:javaPreCompileRelease
+> Task :capacitor-filesystem:checkKotlinGradlePluginConfigurationErrors
+> Task :capacitor-cordova-android-plugins:compileReleaseJavaWithJavac NO-SOURCE
+> Task :capacitor-cordova-android-plugins:bundleLibCompileToJarRelease
+> Task :app:processReleaseResources
+> Task :capacitor-filesystem:javaPreCompileRelease
+> Task :capacitor-share:javaPreCompileRelease
+> Task :app:extractProguardFiles
+> Task :capacitor-share:compileReleaseJavaWithJavac
+> Task :capacitor-share:bundleLibCompileToJarRelease
+> Task :capacitor-android:processReleaseJavaRes NO-SOURCE
+> Task :capacitor-android:extractProguardFiles
+> Task :capacitor-android:bundleLibRuntimeToJarRelease
+> Task :capacitor-android:generateReleaseLintModel
+> Task :capacitor-android:createFullJarRelease
+> Task :capacitor-android:prepareLintJarForPublish
+> Task :capacitor-app:bundleLibRuntimeToJarRelease
+> Task :capacitor-app:processReleaseJavaRes NO-SOURCE
+> Task :capacitor-app:createFullJarRelease
+> Task :capacitor-app:extractProguardFiles
+> Task :capacitor-app:generateReleaseLintModel
+> Task :capacitor-app:prepareLintJarForPublish
+> Task :capacitor-cordova-android-plugins:bundleLibRuntimeToJarRelease
+> Task :capacitor-cordova-android-plugins:processReleaseJavaRes NO-SOURCE
+> Task :capacitor-cordova-android-plugins:createFullJarRelease
+> Task :capacitor-cordova-android-plugins:extractProguardFiles
+> Task :capacitor-cordova-android-plugins:generateReleaseLintModel
+> Task :capacitor-filesystem:extractProguardFiles
+> Task :capacitor-cordova-android-plugins:prepareLintJarForPublish
+> Task :capacitor-filesystem:prepareLintJarForPublish
+> Task :capacitor-share:processReleaseJavaRes NO-SOURCE
+> Task :capacitor-share:extractProguardFiles
+> Task :capacitor-share:bundleLibRuntimeToJarRelease
+> Task :capacitor-share:createFullJarRelease
+> Task :capacitor-share:generateReleaseLintModel
+> Task :capacitor-share:prepareLintJarForPublish
+> Task :capacitor-app:mergeReleaseJniLibFolders
+> Task :capacitor-app:mergeReleaseNativeLibs NO-SOURCE
+> Task :capacitor-app:stripReleaseDebugSymbols NO-SOURCE
+> Task :capacitor-app:copyReleaseJniLibsProjectAndLocalJars
+> Task :capacitor-app:extractDeepLinksForAarRelease
+> Task :capacitor-app:extractReleaseAnnotations
+> Task :capacitor-app:mergeReleaseGeneratedProguardFiles
+> Task :capacitor-app:mergeReleaseConsumerProguardFiles
+> Task :capacitor-app:mergeReleaseShaders
+> Task :capacitor-app:compileReleaseShaders NO-SOURCE
+> Task :capacitor-app:generateReleaseAssets UP-TO-DATE
+> Task :capacitor-app:packageReleaseAssets
+> Task :capacitor-app:prepareReleaseArtProfile
+> Task :capacitor-filesystem:mergeReleaseJniLibFolders
+> Task :capacitor-filesystem:mergeReleaseNativeLibs NO-SOURCE
+> Task :capacitor-filesystem:stripReleaseDebugSymbols NO-SOURCE
+> Task :capacitor-filesystem:copyReleaseJniLibsProjectAndLocalJars
+> Task :capacitor-filesystem:extractDeepLinksForAarRelease
+> Task :capacitor-filesystem:mergeReleaseShaders
+> Task :capacitor-filesystem:compileReleaseShaders NO-SOURCE
+> Task :capacitor-filesystem:generateReleaseAssets UP-TO-DATE
+> Task :capacitor-filesystem:packageReleaseAssets
+> Task :capacitor-filesystem:prepareReleaseArtProfile
+> Task :capacitor-share:mergeReleaseJniLibFolders
+> Task :capacitor-share:mergeReleaseNativeLibs NO-SOURCE
+> Task :capacitor-share:stripReleaseDebugSymbols NO-SOURCE
+> Task :capacitor-share:extractDeepLinksForAarRelease
+> Task :capacitor-share:copyReleaseJniLibsProjectAndLocalJars
+> Task :capacitor-share:extractReleaseAnnotations
+> Task :capacitor-share:mergeReleaseGeneratedProguardFiles
+> Task :capacitor-app:mergeReleaseJavaResource
+> Task :capacitor-share:mergeReleaseConsumerProguardFiles
+> Task :capacitor-app:syncReleaseLibJars
+> Task :capacitor-app:bundleReleaseLocalLintAar
+> Task :capacitor-share:mergeReleaseShaders
+> Task :capacitor-share:compileReleaseShaders NO-SOURCE
+> Task :capacitor-share:generateReleaseAssets UP-TO-DATE
+> Task :capacitor-share:packageReleaseAssets
+> Task :capacitor-share:prepareReleaseArtProfile
+> Task :capacitor-share:mergeReleaseJavaResource
+> Task :capacitor-android:mergeReleaseJniLibFolders
+> Task :capacitor-share:syncReleaseLibJars
+> Task :capacitor-share:bundleReleaseLocalLintAar
+> Task :capacitor-android:mergeReleaseNativeLibs NO-SOURCE
+> Task :capacitor-android:stripReleaseDebugSymbols NO-SOURCE
+> Task :capacitor-android:extractDeepLinksForAarRelease
+> Task :capacitor-android:copyReleaseJniLibsProjectAndLocalJars
+> Task :capacitor-android:extractReleaseAnnotations
+> Task :capacitor-android:mergeReleaseGeneratedProguardFiles
+> Task :capacitor-android:mergeReleaseConsumerProguardFiles
+> Task :capacitor-android:mergeReleaseShaders
+> Task :capacitor-android:compileReleaseShaders NO-SOURCE
+> Task :capacitor-android:generateReleaseAssets UP-TO-DATE
+> Task :capacitor-android:packageReleaseAssets
+> Task :capacitor-android:prepareReleaseArtProfile
+> Task :capacitor-android:mergeReleaseJavaResource
+> Task :capacitor-cordova-android-plugins:mergeReleaseJniLibFolders
+> Task :capacitor-android:syncReleaseLibJars
+> Task :capacitor-android:bundleReleaseLocalLintAar
+> Task :capacitor-cordova-android-plugins:mergeReleaseNativeLibs NO-SOURCE
+> Task :capacitor-cordova-android-plugins:stripReleaseDebugSymbols NO-SOURCE
+> Task :capacitor-cordova-android-plugins:copyReleaseJniLibsProjectAndLocalJars
+> Task :capacitor-cordova-android-plugins:extractDeepLinksForAarRelease
+> Task :capacitor-cordova-android-plugins:extractReleaseAnnotations
+> Task :capacitor-cordova-android-plugins:mergeReleaseGeneratedProguardFiles
+> Task :capacitor-cordova-android-plugins:mergeReleaseConsumerProguardFiles
+> Task :capacitor-cordova-android-plugins:mergeReleaseShaders
+> Task :capacitor-cordova-android-plugins:compileReleaseShaders NO-SOURCE
+> Task :capacitor-cordova-android-plugins:generateReleaseAssets UP-TO-DATE
+> Task :capacitor-cordova-android-plugins:packageReleaseAssets
+> Task :capacitor-cordova-android-plugins:prepareReleaseArtProfile
+> Task :capacitor-cordova-android-plugins:mergeReleaseJavaResource
+> Task :capacitor-cordova-android-plugins:syncReleaseLibJars
+> Task :capacitor-cordova-android-plugins:bundleReleaseLocalLintAar
+> Task :capacitor-android:writeReleaseLintModelMetadata
+> Task :capacitor-app:writeReleaseLintModelMetadata
+> Task :capacitor-cordova-android-plugins:writeReleaseLintModelMetadata
+> Task :capacitor-filesystem:writeReleaseLintModelMetadata
+> Task :capacitor-share:writeReleaseLintModelMetadata
+> Task :capacitor-android:generateReleaseLintVitalModel
+> Task :capacitor-app:generateReleaseLintVitalModel
+> Task :capacitor-cordova-android-plugins:generateReleaseLintVitalModel
+> Task :capacitor-share:generateReleaseLintVitalModel
+> Task :app:mergeReleaseJniLibFolders
+> Task :capacitor-android:copyReleaseJniLibsProjectOnly
+> Task :capacitor-app:copyReleaseJniLibsProjectOnly
+> Task :capacitor-cordova-android-plugins:copyReleaseJniLibsProjectOnly
+> Task :capacitor-filesystem:copyReleaseJniLibsProjectOnly
+> Task :capacitor-share:copyReleaseJniLibsProjectOnly
+> Task :app:mergeReleaseNativeLibs NO-SOURCE
+> Task :app:stripReleaseDebugSymbols NO-SOURCE
+> Task :app:extractReleaseNativeSymbolTables NO-SOURCE
+> Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
+> Task :app:checkReleaseDuplicateClasses
+> Task :app:desugarReleaseFileDependencies
+> Task :app:mergeReleaseStartupProfile
+
+> Task :capacitor-filesystem:compileReleaseKotlin
+w: file:///home/runner/work/snippy/snippy/mobile/node_modules/@capacitor/filesystem/android/src/main/kotlin/com/capacitorjs/plugins/filesystem/FilesystemPlugin.kt:335:31 'downloadFile(PluginCall): Unit' is deprecated. Use @capacitor/file-transfer plugin instead
+w: file:///home/runner/work/snippy/snippy/mobile/node_modules/@capacitor/filesystem/android/src/main/kotlin/com/capacitorjs/plugins/filesystem/LegacyFilesystemImplementation.kt:66:29 Type mismatch: inferred type is String? but String was expected
+w: file:///home/runner/work/snippy/snippy/mobile/node_modules/@capacitor/filesystem/android/src/main/kotlin/com/capacitorjs/plugins/filesystem/LegacyFilesystemImplementation.kt:143:25 Unnecessary non-null assertion (!!) on a non-null receiver of type Boolean
+w: file:///home/runner/work/snippy/snippy/mobile/node_modules/@capacitor/filesystem/android/src/main/kotlin/com/capacitorjs/plugins/filesystem/LegacyFilesystemImplementation.kt:152:21 Unnecessary non-null assertion (!!) on a non-null receiver of type Boolean
+
+> Task :capacitor-android:lintVitalAnalyzeRelease
+> Task :capacitor-app:lintVitalAnalyzeRelease
+> Task :app:mergeExtDexRelease
+> Task :capacitor-filesystem:compileReleaseJavaWithJavac NO-SOURCE
+> Task :capacitor-filesystem:bundleLibCompileToJarRelease
+> Task :capacitor-filesystem:bundleLibRuntimeToJarRelease
+> Task :capacitor-filesystem:processReleaseJavaRes
+> Task :app:compileReleaseJavaWithJavac
+> Task :capacitor-filesystem:createFullJarRelease
+> Task :capacitor-filesystem:generateReleaseLintModel
+> Task :app:generateReleaseLintVitalReportModel
+> Task :capacitor-filesystem:extractReleaseAnnotations
+> Task :capacitor-filesystem:mergeReleaseGeneratedProguardFiles
+> Task :capacitor-filesystem:mergeReleaseConsumerProguardFiles
+> Task :capacitor-filesystem:mergeReleaseJavaResource
+> Task :capacitor-filesystem:syncReleaseLibJars
+> Task :capacitor-filesystem:bundleReleaseLocalLintAar
+> Task :capacitor-filesystem:generateReleaseLintVitalModel
+> Task :app:dexBuilderRelease
+> Task :app:mergeReleaseArtProfile
+> Task :capacitor-cordova-android-plugins:lintVitalAnalyzeRelease
+> Task :app:mergeReleaseGlobalSynthetics
+> Task :app:mergeReleaseShaders
+> Task :app:compileReleaseShaders NO-SOURCE
+> Task :app:generateReleaseAssets UP-TO-DATE
+> Task :app:mergeReleaseAssets
+> Task :capacitor-share:lintVitalAnalyzeRelease
+> Task :app:compressReleaseAssets
+> Task :app:extractReleaseVersionControlInfo
+> Task :app:processReleaseJavaRes NO-SOURCE
+> Task :app:mergeReleaseJavaResource
+> Task :app:mergeDexRelease
+> Task :app:collectReleaseDependencies
+> Task :app:optimizeReleaseResources
+> Task :app:sdkReleaseDependencyData
+> Task :app:validateSigningRelease
+> Task :app:writeReleaseAppMetadata
+> Task :app:writeReleaseSigningConfigVersions
+> Task :capacitor-android:bundleReleaseAar
+> Task :capacitor-android:mapReleaseSourceSetPaths
+> Task :app:compileReleaseArtProfile
+> Task :capacitor-android:mergeReleaseResources
+> Task :capacitor-app:bundleReleaseAar
+> Task :capacitor-app:mapReleaseSourceSetPaths
+> Task :capacitor-app:mergeReleaseResources
+> Task :app:packageRelease
+> Task :app:createReleaseApkListingFileRedirect
+> Task :capacitor-cordova-android-plugins:bundleReleaseAar
+> Task :capacitor-cordova-android-plugins:mapReleaseSourceSetPaths
+> Task :capacitor-android:verifyReleaseResources
+> Task :capacitor-app:verifyReleaseResources
+> Task :capacitor-cordova-android-plugins:mergeReleaseResources
+> Task :capacitor-android:assembleRelease
+> Task :capacitor-app:assembleRelease
+> Task :capacitor-filesystem:bundleReleaseAar
+> Task :capacitor-filesystem:mapReleaseSourceSetPaths
+> Task :capacitor-filesystem:mergeReleaseResources
+> Task :capacitor-share:bundleReleaseAar
+> Task :capacitor-share:mapReleaseSourceSetPaths
+> Task :capacitor-cordova-android-plugins:verifyReleaseResources
+> Task :capacitor-share:mergeReleaseResources
+> Task :capacitor-cordova-android-plugins:assembleRelease
+> Task :capacitor-filesystem:verifyReleaseResources
+> Task :capacitor-filesystem:assembleRelease
+> Task :capacitor-filesystem:lintVitalAnalyzeRelease
+> Task :capacitor-share:verifyReleaseResources
+> Task :capacitor-share:assembleRelease
+> Task :app:lintVitalAnalyzeRelease
+> Task :app:lintVitalReportRelease
+> Task :app:lintVitalRelease
+> Task :app:assembleRelease
+[Incubating] Problems report is available at: file:///home/runner/work/snippy/snippy/mobile/android/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 2m 29s
+229 actionable tasks: 229 executed
++ apk=app/build/outputs/apk/release/app-release.apk
++ mkdir -p /home/runner/work/snippy/snippy/out
++ cp app/build/outputs/apk/release/app-release.apk /home/runner/work/snippy/snippy/out/Snippy-0.50.0.apk
++ echo apk=out/Snippy-0.50.0.apk
++ echo version=0.50.0
